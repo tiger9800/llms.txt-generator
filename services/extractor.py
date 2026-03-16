@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+import re
 from typing import TypeAlias
 from urllib.parse import urlsplit
 
@@ -28,7 +29,7 @@ def extract_page(url: str, html: str, depth: int) -> Page:
     canonical_url = _extract_canonical_url(soup, normalized_url)
 
     if not description:
-        description = _build_fallback_description(soup)
+        description = _build_fallback_description(soup, html)
 
     return Page(
         url=normalized_url,
@@ -95,9 +96,13 @@ def _build_fallback_title(url: str) -> str:
     return last_segment.replace("-", " ").replace("_", " ").title()
 
 
-def _build_fallback_description(soup: BeautifulSoup) -> str:
+def _build_fallback_description(soup: BeautifulSoup, raw_html: str) -> str:
     content_root = soup.find(["main", "article"]) or soup.body or soup
     text_chunks = _extract_content_text_chunks(content_root)
+    if not text_chunks:
+        raw_body_text = _extract_raw_body_text(raw_html)
+        if raw_body_text:
+            text_chunks = [raw_body_text]
 
     summary = " ".join(text_chunks).strip()
     if not summary:
@@ -208,3 +213,17 @@ def _clean_title_text(title_text: str) -> str:
 
     leading_text, _, _ = normalized_reparsed_text.partition("<")
     return _normalize_block_text(leading_text)
+
+
+def _extract_raw_body_text(raw_html: str) -> str | None:
+    body_match = re.search(r"<body[^>]*>(.*)", raw_html, flags=re.IGNORECASE | re.DOTALL)
+    if body_match is None:
+        return None
+
+    body_fragment = body_match.group(1)
+    body_text = BeautifulSoup(body_fragment, "html.parser").get_text(" ", strip=True)
+    normalized_body_text = _normalize_block_text(body_text)
+    if _is_useful_text_chunk(normalized_body_text):
+        return normalized_body_text
+
+    return None
