@@ -216,7 +216,7 @@ Format:
 
     utils/
       url_utils.py
-      html_utils.py
+      http_utils.py
 
     static/
     templates/
