@@ -1,0 +1,102 @@
+from __future__ import annotations
+
+import httpx
+import pytest
+
+from services.crawler import CrawlerConfig
+from services.pipeline import GenerationPipeline
+
+
+@pytest.mark.anyio
+async def test_generation_pipeline_runs_end_to_end_with_mocked_http_site() -> None:
+    pages = {
+        "https://example.com": """
+            <html>
+              <head>
+                <title>Example Platform</title>
+                <meta name="description" content="Developer tools and docs for Example Platform.">
+              </head>
+              <body>
+                <a href="/docs/start">Getting Started</a>
+                <a href="/account/login">Login</a>
+              </body>
+            </html>
+        """,
+        "https://example.com/docs/start": """
+            <html>
+              <head>
+                <title>Getting Started</title>
+                <meta name="description" content="Learn how to start building.">
+                <link rel="canonical" href="https://example.com/docs/start">
+              </head>
+              <body>
+                <a href="/blog">Blog</a>
+              </body>
+            </html>
+        """,
+        "https://example.com/blog": """
+            <html>
+              <head>
+                <title>Blog</title>
+                <meta name="description" content="Product updates and tutorials.">
+              </head>
+              <body></body>
+            </html>
+        """,
+    }
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        request_url = str(request.url).rstrip("/") or str(request.url)
+        html = pages.get(request_url)
+        if html is None:
+            return httpx.Response(status_code=404, request=request)
+
+        return httpx.Response(
+            status_code=200,
+            headers={"content-type": "text/html; charset=utf-8"},
+            text=html,
+            request=request,
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        pipeline = GenerationPipeline(client=client)
+        result = await pipeline.run(
+            "https://example.com/",
+            crawl_config=CrawlerConfig(max_depth=2, max_pages=10),
+        )
+
+    assert result.normalized_root_url == "https://example.com/"
+    assert [url for url, _, _ in result.crawled_pages] == [
+        "https://example.com/",
+        "https://example.com/docs/start",
+        "https://example.com/blog",
+    ]
+    assert [page.url for page in result.selected_pages] == [
+        "https://example.com/",
+        "https://example.com/docs/start",
+        "https://example.com/blog",
+    ]
+    assert result.selected_pages[1].category == "Documentation"
+    assert "## Documentation" in result.llms_txt_markdown
+    assert "## Resources" in result.llms_txt_markdown
+    assert "- [Getting Started](https://example.com/docs/start): Learn how to start building." in result.llms_txt_markdown
+
+
+@pytest.mark.anyio
+async def test_generation_pipeline_returns_empty_output_when_crawl_finds_no_pages() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(status_code=404, request=request)
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        pipeline = GenerationPipeline(client=client)
+        result = await pipeline.run(
+            "https://example.com/",
+            crawl_config=CrawlerConfig(max_depth=1, max_pages=5),
+        )
+
+    assert result.normalized_root_url == "https://example.com/"
+    assert result.crawled_pages == []
+    assert result.selected_pages == []
+    assert result.llms_txt_markdown == "# Website"
