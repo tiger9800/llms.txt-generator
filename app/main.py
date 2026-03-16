@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from fasthtml.common import fast_app, serve
 
 from app.routes import register_routes
@@ -12,9 +14,22 @@ from services.pipeline import GenerationPipeline, GenerationResult
 __all__ = ["PipelineRunner", "app", "create_app"]
 
 
+def _configure_logging() -> None:
+    """Configure simple console logging for local app runs."""
+
+    if logging.getLogger().handlers:
+        return
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+
+
 def create_app(*, pipeline: PipelineRunner | None = None):
     """Create the FastHTML app for the llms.txt generator."""
 
+    _configure_logging()
     app, rt = fast_app(title="Automated llms.txt Generator")
     result_store: dict[str, GenerationResult] = {}
     register_routes(
