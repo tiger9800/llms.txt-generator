@@ -52,9 +52,10 @@ def extract_pages(crawled_pages: Iterable[CrawledPageInput]) -> list[Page]:
 def _extract_title(soup: BeautifulSoup, url: str) -> str:
     title_tag = soup.find("title")
     if isinstance(title_tag, Tag):
-        title_text = title_tag.get_text(" ", strip=True)
-        if title_text:
-            return title_text
+        title_text = _normalize_block_text(title_tag.get_text(" ", strip=True))
+        cleaned_title_text = _clean_title_text(title_text)
+        if cleaned_title_text:
+            return cleaned_title_text
 
     return _build_fallback_title(url)
 
@@ -194,3 +195,11 @@ def _deduplicate_chunks(text_chunks: list[str]) -> list[str]:
         deduplicated_chunks.append(text)
 
     return deduplicated_chunks
+
+
+def _clean_title_text(title_text: str) -> str:
+    if "<" not in title_text and ">" not in title_text:
+        return title_text
+
+    reparsed_text = BeautifulSoup(title_text, "html.parser").get_text(" ", strip=True)
+    return _normalize_block_text(reparsed_text)
