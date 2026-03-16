@@ -144,36 +144,34 @@ timing logs to make performance easier to inspect.
 
 ## 4. `robots.txt` Support
 
-The crawler should behave responsibly and respect site-level crawl
-rules.
+Status: implemented.
 
-Before fetching crawl targets, check:
+The crawler now loads and applies a fail-open `robots.txt` policy before
+fetching and enqueueing crawl targets.
+
+### Current behavior
+
+Before crawling a site, the crawler checks:
 
     https://domain.com/robots.txt
 
-### Behavior
-
 -   fetch and parse `robots.txt`
-
 -   determine whether a URL is allowed before crawling it
-
 -   skip disallowed URLs
-
 -   use a custom user-agent such as:
 
     llmstxt-generator/1.0
 
-### Implementation Notes
+### Implementation notes
 
-Recommended implementation:
+-   `urllib.robotparser` is used for parsing
+-   `utils/robots.py` encapsulates fetch and policy checks
+-   rules are enforced for both the root URL and discovered links
+-   request headers use a custom `User-Agent`
+-   robots.txt lines are normalized for compatibility with common
+    versioned `User-agent` values
 
--   `urllib.robotparser` for parsing
-
--   a small helper module such as:
-
-    utils/robots.py
-
-### Failure Handling
+### Failure handling
 
 If `robots.txt` cannot be fetched or parsed:
 

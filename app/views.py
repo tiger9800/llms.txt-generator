@@ -7,7 +7,13 @@ from fasthtml.common import Button, Div, Form, H1, H2, Input, Li, P, Pre, Strong
 from services.pipeline import GenerationResult
 
 
-def render_home_page(*, url_value: str = "", error_message: str | None = None):
+def render_home_page(
+    *,
+    url_value: str = "",
+    error_message: str | None = None,
+    force_generate: bool = False,
+    respect_robots_txt: bool = True,
+):
     """Render the home page with the generation form and optional error state."""
 
     form = Form(
@@ -25,9 +31,21 @@ def render_home_page(*, url_value: str = "", error_message: str | None = None):
                 name="force_generate",
                 value="1",
                 id="force_generate",
+                checked=force_generate,
             ),
             "Force generate even if llms.txt exists",
             style="margin-top: 1rem;",
+        ),
+        Div(
+            Input(
+                type="checkbox",
+                name="respect_robots_txt",
+                value="1",
+                id="respect_robots_txt",
+                checked=respect_robots_txt,
+            ),
+            "Respect robots.txt",
+            style="margin-top: 0.75rem;",
         ),
         Div(Button("Generate llms.txt", type="submit"), style="margin-top: 1rem;"),
         action="/generate",

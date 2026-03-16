@@ -16,6 +16,7 @@ class PipelineRunner(Protocol):
         *,
         crawl_config=None,
         force_generate: bool = False,
+        respect_robots_txt: bool = True,
     ) -> GenerationResult:
         """Execute the generation pipeline for the provided URL."""
         ...

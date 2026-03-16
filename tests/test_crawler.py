@@ -294,3 +294,153 @@ async def test_crawl_site_logs_lifecycle_and_fetch_timing(caplog: pytest.LogCapt
     assert "Starting crawl for https://example.com/" in caplog.text
     assert "Fetched https://example.com/ in " in caplog.text
     assert "Completed crawl for https://example.com/ in " in caplog.text
+
+
+@pytest.mark.anyio
+async def test_crawl_site_respects_robots_txt_disallow_rules() -> None:
+    pages = {
+        "https://example.com/robots.txt": """
+            User-agent: llmstxt-generator/1.0
+            Disallow: /private
+        """,
+        "https://example.com": """
+            <html>
+              <body>
+                <a href="/docs">Docs</a>
+                <a href="/private">Private</a>
+              </body>
+            </html>
+        """,
+        "https://example.com/docs": "<html><body><p>Docs</p></body></html>",
+        "https://example.com/private": "<html><body><p>Private</p></body></html>",
+    }
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        request_url = str(request.url).rstrip("/") or str(request.url)
+        content = pages.get(request_url)
+        if content is None:
+            return httpx.Response(status_code=404, request=request)
+
+        if request_url == "https://example.com/robots.txt":
+            assert request.headers["User-Agent"] == "llmstxt-generator/1.0"
+            return httpx.Response(
+                status_code=200,
+                headers={"content-type": "text/plain"},
+                text=content,
+                request=request,
+            )
+
+        return httpx.Response(
+            status_code=200,
+            headers={"content-type": "text/html"},
+            text=content,
+            request=request,
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        crawled_pages = await crawl_site(
+            "https://example.com/",
+            config=CrawlerConfig(max_depth=1, max_pages=10),
+            client=client,
+        )
+
+    assert [page[0] for page in crawled_pages] == [
+        "https://example.com/",
+        "https://example.com/docs",
+    ]
+
+
+@pytest.mark.anyio
+async def test_crawl_site_fails_open_when_robots_txt_is_unavailable() -> None:
+    pages = {
+        "https://example.com": """
+            <html>
+              <body>
+                <a href="/docs">Docs</a>
+              </body>
+            </html>
+        """,
+        "https://example.com/docs": "<html><body><p>Docs</p></body></html>",
+    }
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        request_url = str(request.url).rstrip("/") or str(request.url)
+        if request_url == "https://example.com/robots.txt":
+            return httpx.Response(status_code=404, request=request)
+
+        html = pages.get(request_url)
+        if html is None:
+            return httpx.Response(status_code=404, request=request)
+
+        return httpx.Response(
+            status_code=200,
+            headers={"content-type": "text/html"},
+            text=html,
+            request=request,
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        crawled_pages = await crawl_site(
+            "https://example.com/",
+            config=CrawlerConfig(max_depth=1, max_pages=10),
+            client=client,
+        )
+
+    assert [page[0] for page in crawled_pages] == [
+        "https://example.com/",
+        "https://example.com/docs",
+    ]
+
+
+@pytest.mark.anyio
+async def test_crawl_site_can_disable_robots_txt_enforcement() -> None:
+    pages = {
+        "https://example.com/robots.txt": """
+            User-agent: llmstxt-generator/1.0
+            Disallow: /private
+        """,
+        "https://example.com": """
+            <html>
+              <body>
+                <a href="/private">Private</a>
+              </body>
+            </html>
+        """,
+        "https://example.com/private": "<html><body><p>Private</p></body></html>",
+    }
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        request_url = str(request.url).rstrip("/") or str(request.url)
+        content = pages.get(request_url)
+        if content is None:
+            return httpx.Response(status_code=404, request=request)
+
+        if request_url == "https://example.com/robots.txt":
+            return httpx.Response(
+                status_code=200,
+                headers={"content-type": "text/plain"},
+                text=content,
+                request=request,
+            )
+
+        return httpx.Response(
+            status_code=200,
+            headers={"content-type": "text/html"},
+            text=content,
+            request=request,
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        crawled_pages = await crawl_site(
+            "https://example.com/",
+            config=CrawlerConfig(max_depth=1, max_pages=10, respect_robots_txt=False),
+            client=client,
+        )
+
+    assert [page[0] for page in crawled_pages] == [
+        "https://example.com/",
+        "https://example.com/private",
+    ]

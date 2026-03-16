@@ -20,24 +20,36 @@ def register_routes(rt, *, pipeline: PipelineRunner, result_store: dict[str, Gen
         return render_home_page()
 
     @rt("/generate", methods=["POST"])
-    async def post(url: str, force_generate: str | None = None):
+    async def post(
+        url: str,
+        force_generate: str | None = None,
+        respect_robots_txt: str | None = None,
+    ):
+        should_force_generate = force_generate is not None
+        should_respect_robots_txt = respect_robots_txt is not None
+
         try:
             normalized_url = normalize_url(url)
         except ValueError:
             return render_home_page(
                 url_value=url,
                 error_message="Please enter a valid absolute http(s) URL.",
+                force_generate=should_force_generate,
+                respect_robots_txt=should_respect_robots_txt,
             )
 
         try:
             result = await pipeline.run(
                 normalized_url,
-                force_generate=force_generate is not None,
+                force_generate=should_force_generate,
+                respect_robots_txt=should_respect_robots_txt,
             )
         except Exception:
             return render_home_page(
                 url_value=normalized_url,
                 error_message="Something went wrong while crawling that site. Please try again.",
+                force_generate=should_force_generate,
+                respect_robots_txt=should_respect_robots_txt,
             )
 
         result_id = uuid4().hex

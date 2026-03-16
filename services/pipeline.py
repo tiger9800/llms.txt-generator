@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import logging
 from time import perf_counter
 from urllib.parse import urljoin, urlsplit
@@ -62,6 +62,7 @@ class GenerationPipeline:
         *,
         crawl_config: CrawlerConfig | None = None,
         force_generate: bool = False,
+        respect_robots_txt: bool = True,
     ) -> GenerationResult:
         """Run the full deterministic llms.txt generation pipeline."""
 
@@ -83,7 +84,11 @@ class GenerationPipeline:
             _log_pipeline_completion(normalized_root_url, result, perf_counter() - pipeline_started_at)
             return result
 
-        crawler_config = crawl_config or CrawlerConfig()
+        crawler_config = (
+            CrawlerConfig(respect_robots_txt=respect_robots_txt)
+            if crawl_config is None
+            else replace(crawl_config, respect_robots_txt=respect_robots_txt)
+        )
         crawled_pages = await self._crawl_service(
             normalized_root_url,
             config=crawler_config,

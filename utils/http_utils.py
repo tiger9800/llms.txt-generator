@@ -7,6 +7,8 @@ from contextlib import asynccontextmanager
 
 import httpx
 
+DEFAULT_USER_AGENT = "llmstxt-generator/1.0"
+
 
 @asynccontextmanager
 async def get_async_client(
