@@ -48,6 +48,8 @@ def test_home_route_renders_url_form() -> None:
     assert 'method="post"' in response.text
     assert 'name="url"' in response.text
     assert 'name="respect_robots_txt"' in response.text
+    assert 'rel="icon"' in response.text
+    assert 'href="/static/logo.png"' in response.text
 
 
 def test_generate_route_renders_result_preview_and_download_link() -> None:
@@ -146,3 +148,22 @@ def test_download_route_redirects_when_result_is_missing() -> None:
     response = client.get("/download/missing")
 
     assert response.status_code == 303
+
+
+def test_favicon_asset_is_served() -> None:
+    app = create_app(
+        pipeline=StubPipeline(
+            result=GenerationResult(
+                normalized_root_url="https://example.com/",
+                crawled_pages=[],
+                selected_pages=[],
+                llms_txt_markdown="# Website",
+            )
+        )
+    )
+    client = Client(app)
+
+    response = client.get("/static/logo.png")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("image/png")

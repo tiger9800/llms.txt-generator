@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from fasthtml.common import fast_app, serve
+from fasthtml.common import Link, fast_app, serve
 
 from app.routes import register_routes
 from app.types import PipelineRunner
@@ -12,6 +12,7 @@ from services.pipeline import GenerationPipeline, GenerationResult
 
 
 __all__ = ["PipelineRunner", "app", "create_app"]
+FAVICON_PATH = "/static/logo.png"
 
 
 def _configure_logging() -> None:
@@ -30,7 +31,10 @@ def create_app(*, pipeline: PipelineRunner | None = None):
     """Create the FastHTML app for the llms.txt generator."""
 
     _configure_logging()
-    app, rt = fast_app(title="Automated llms.txt Generator")
+    app, rt = fast_app(
+        title="Automated llms.txt Generator",
+        hdrs=(Link(rel="icon", href=FAVICON_PATH, type="image/png"),),
+    )
     result_store: dict[str, GenerationResult] = {}
     register_routes(
         rt,
