@@ -10,6 +10,7 @@ from typing import TypeAlias
 import httpx
 from bs4 import BeautifulSoup
 
+from utils.http_utils import get_async_client
 from utils.url_utils import is_html_like_url, is_same_domain, normalize_url, should_skip_url
 
 CrawledPage: TypeAlias = tuple[str, str, int]
@@ -46,21 +47,15 @@ async def crawl_site(
     if should_skip_url(normalized_start_url):
         return []
 
-    if client is not None:
-        return await _crawl_with_client(
-            normalized_start_url,
-            crawler_config,
-            client,
-        )
-
-    async with httpx.AsyncClient(
+    async with get_async_client(
+        client,
         follow_redirects=True,
         timeout=crawler_config.timeout,
-    ) as managed_client:
+    ) as active_client:
         return await _crawl_with_client(
             normalized_start_url,
             crawler_config,
-            managed_client,
+            active_client,
         )
 
 

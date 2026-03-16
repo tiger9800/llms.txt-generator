@@ -20,7 +20,7 @@ def register_routes(rt, *, pipeline: PipelineRunner, result_store: dict[str, Gen
         return render_home_page()
 
     @rt("/generate", methods=["POST"])
-    async def post(url: str):
+    async def post(url: str, force_regenerate: str | None = None):
         try:
             normalized_url = normalize_url(url)
         except ValueError:
@@ -30,7 +30,10 @@ def register_routes(rt, *, pipeline: PipelineRunner, result_store: dict[str, Gen
             )
 
         try:
-            result = await pipeline.run(normalized_url)
+            result = await pipeline.run(
+                normalized_url,
+                force_regenerate=force_regenerate is not None,
+            )
         except Exception:
             return render_home_page(
                 url_value=normalized_url,

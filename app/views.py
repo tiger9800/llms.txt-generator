@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fasthtml.common import A, Button, Div, Form, H1, H2, Input, Li, P, Pre, Strong, Titled, Ul
+from fasthtml.common import Button, Div, Form, H1, H2, Input, Li, P, Pre, Strong, Titled, Ul
 
 from services.pipeline import GenerationResult
 
@@ -18,6 +18,16 @@ def render_home_page(*, url_value: str = "", error_message: str | None = None):
             value=url_value,
             placeholder="https://example.com",
             required=True,
+        ),
+        Div(
+            Input(
+                type="checkbox",
+                name="force_regenerate",
+                value="1",
+                id="force_regenerate",
+            ),
+            "Force regenerate even if llms.txt exists",
+            style="margin-top: 1rem;",
         ),
         Div(Button("Generate llms.txt", type="submit"), style="margin-top: 1rem;"),
         action="/generate",
@@ -50,6 +60,10 @@ def render_result_page(result: GenerationResult, *, download_path: str):
 
     summary = Ul(
         Li(Strong("Normalized URL: "), result.normalized_root_url),
+        Li(
+            Strong("Source: "),
+            "Existing llms.txt" if result.used_existing_llms_txt else "Generated from crawl",
+        ),
         Li(Strong("Crawled pages: "), str(len(result.crawled_pages))),
         Li(Strong("Selected pages: "), str(len(result.selected_pages))),
     )
@@ -60,13 +74,13 @@ def render_result_page(result: GenerationResult, *, download_path: str):
             H1("llms.txt Preview"),
             summary,
             Div(
-                A("Download llms.txt", href=download_path),
+                Button("Download llms.txt", type="button", onclick=f"window.location='{download_path}'"),
                 style="margin: 1rem 0;",
             ),
             H2("Preview"),
             Pre(result.llms_txt_markdown),
             Div(
-                A("Generate another", href="/"),
+                Button("Generate another", type="button", onclick="window.location='/'"),
                 style="margin-top: 1rem;",
             ),
             style="max-width: 56rem; margin: 2rem auto; padding: 0 1rem;",

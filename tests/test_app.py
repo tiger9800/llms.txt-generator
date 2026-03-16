@@ -13,7 +13,7 @@ from services.pipeline import GenerationResult
 class StubPipeline:
     result: GenerationResult
 
-    async def run(self, root_url: str, *, crawl_config=None):
+    async def run(self, root_url: str, *, crawl_config=None, force_regenerate: bool = False):
         return self.result
 
 

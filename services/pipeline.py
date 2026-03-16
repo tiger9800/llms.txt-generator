@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from urllib.parse import urljoin
 from typing import Awaitable
 
 import httpx
@@ -13,6 +14,7 @@ from services.crawler import CrawledPage, CrawlerConfig, crawl_site
 from services.extractor import extract_pages
 from services.generator import generate_llms_txt
 from services.prioritizer import prioritize_pages
+from utils.http_utils import get_async_client
 from utils.url_utils import normalize_url
 
 CrawlService = Callable[
@@ -29,6 +31,8 @@ class GenerationResult:
     crawled_pages: list[CrawledPage]
     selected_pages: list[Page]
     llms_txt_markdown: str
+    used_existing_llms_txt: bool = False
+    existing_llms_txt_url: str | None = None
 
 
 class GenerationPipeline:
@@ -54,10 +58,22 @@ class GenerationPipeline:
         root_url: str,
         *,
         crawl_config: CrawlerConfig | None = None,
+        force_regenerate: bool = False,
     ) -> GenerationResult:
         """Run the full deterministic llms.txt generation pipeline."""
 
         normalized_root_url = normalize_url(root_url)
+        existing_llms_txt = await self._fetch_existing_llms_txt(normalized_root_url)
+        if existing_llms_txt is not None and not force_regenerate:
+            return GenerationResult(
+                normalized_root_url=normalized_root_url,
+                crawled_pages=[],
+                selected_pages=[],
+                llms_txt_markdown=existing_llms_txt,
+                used_existing_llms_txt=True,
+                existing_llms_txt_url=urljoin(normalized_root_url, "/llms.txt"),
+            )
+
         crawler_config = crawl_config or CrawlerConfig()
         crawled_pages = await self._crawl_service(
             normalized_root_url,
@@ -73,4 +89,26 @@ class GenerationPipeline:
             crawled_pages=crawled_pages,
             selected_pages=selected_pages,
             llms_txt_markdown=llms_txt_markdown,
+            existing_llms_txt_url=urljoin(normalized_root_url, "/llms.txt"),
         )
+
+    async def _fetch_existing_llms_txt(self, root_url: str) -> str | None:
+        llms_txt_url = urljoin(root_url, "/llms.txt")
+
+        async with get_async_client(self._client, follow_redirects=True, timeout=10.0) as client:
+            return await _fetch_llms_txt_with_client(client, llms_txt_url)
+
+
+async def _fetch_llms_txt_with_client(
+    client: httpx.AsyncClient,
+    llms_txt_url: str,
+) -> str | None:
+    try:
+        response = await client.get(llms_txt_url)
+    except httpx.HTTPError:
+        return None
+
+    if response.status_code != 200:
+        return None
+
+    return response.text

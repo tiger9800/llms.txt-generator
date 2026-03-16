@@ -100,3 +100,79 @@ async def test_generation_pipeline_returns_empty_output_when_crawl_finds_no_page
     assert result.crawled_pages == []
     assert result.selected_pages == []
     assert result.llms_txt_markdown == "# Website"
+
+
+@pytest.mark.anyio
+async def test_generation_pipeline_uses_existing_llms_txt_when_available() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        request_url = str(request.url)
+        if request_url == "https://example.com/llms.txt":
+            return httpx.Response(
+                status_code=200,
+                text="# Existing llms.txt",
+                request=request,
+            )
+
+        return httpx.Response(status_code=404, request=request)
+
+    async def unexpected_crawl_service(*args, **kwargs):
+        raise AssertionError("crawl_service should not be called when llms.txt already exists")
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        pipeline = GenerationPipeline(client=client, crawl_service=unexpected_crawl_service)
+        result = await pipeline.run("https://example.com/")
+
+    assert result.used_existing_llms_txt is True
+    assert result.llms_txt_markdown == "# Existing llms.txt"
+    assert result.crawled_pages == []
+    assert result.selected_pages == []
+
+
+@pytest.mark.anyio
+async def test_generation_pipeline_can_force_regenerate_even_when_llms_txt_exists() -> None:
+    pages = {
+        "https://example.com": """
+            <html>
+              <head><title>Example Platform</title></head>
+              <body><a href="/docs/start">Getting Started</a></body>
+            </html>
+        """,
+        "https://example.com/docs/start": """
+            <html>
+              <head><title>Getting Started</title></head>
+              <body></body>
+            </html>
+        """,
+    }
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        request_url = str(request.url).rstrip("/") or str(request.url)
+        if str(request.url) == "https://example.com/llms.txt":
+            return httpx.Response(status_code=200, text="# Existing llms.txt", request=request)
+
+        html = pages.get(request_url)
+        if html is None:
+            return httpx.Response(status_code=404, request=request)
+
+        return httpx.Response(
+            status_code=200,
+            headers={"content-type": "text/html; charset=utf-8"},
+            text=html,
+            request=request,
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        pipeline = GenerationPipeline(client=client)
+        result = await pipeline.run(
+            "https://example.com/",
+            crawl_config=CrawlerConfig(max_depth=1, max_pages=10),
+            force_regenerate=True,
+        )
+
+    assert result.used_existing_llms_txt is False
+    assert [url for url, _, _ in result.crawled_pages] == [
+        "https://example.com/",
+        "https://example.com/docs/start",
+    ]
