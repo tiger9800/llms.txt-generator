@@ -53,7 +53,7 @@ The project is Python-first.
 
 Style requirements:
 
-- Use Python 3.11+ features where appropriate
+- Use Python 3.10+ features where appropriate
 - Follow PEP 8
 - Use type hints everywhere practical
 - Prefer dataclasses or clear typed models for structured data
