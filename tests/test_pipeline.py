@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 import httpx
 import pytest
 
@@ -210,3 +212,70 @@ async def test_generation_pipeline_can_force_generate_even_when_llms_txt_exists(
         "https://example.com/docs/start",
     ]
     assert result.existing_llms_txt_url is None
+
+
+@pytest.mark.anyio
+async def test_generation_pipeline_logs_existing_llms_txt_usage(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url) == "https://example.com/llms.txt":
+            return httpx.Response(status_code=200, text="# Existing llms.txt", request=request)
+
+        return httpx.Response(status_code=404, request=request)
+
+    caplog.set_level(logging.INFO)
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        pipeline = GenerationPipeline(client=client)
+        await pipeline.run("https://example.com/")
+
+    assert "Starting generation pipeline for https://example.com/" in caplog.text
+    assert "Using existing llms.txt from https://example.com/llms.txt" in caplog.text
+    assert "Completed generation pipeline for https://example.com/ in " in caplog.text
+
+
+@pytest.mark.anyio
+async def test_generation_pipeline_logs_generated_output_summary(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    pages = {
+        "https://example.com": """
+            <html>
+              <head><title>Example Platform</title></head>
+              <body><a href="/docs/start">Getting Started</a></body>
+            </html>
+        """,
+        "https://example.com/docs/start": """
+            <html>
+              <head><title>Getting Started</title></head>
+              <body></body>
+            </html>
+        """,
+    }
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        request_url = str(request.url).rstrip("/") or str(request.url)
+        html = pages.get(request_url)
+        if html is None:
+            return httpx.Response(status_code=404, request=request)
+
+        return httpx.Response(
+            status_code=200,
+            headers={"content-type": "text/html; charset=utf-8"},
+            text=html,
+            request=request,
+        )
+
+    caplog.set_level(logging.INFO)
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        pipeline = GenerationPipeline(client=client)
+        await pipeline.run(
+            "https://example.com/",
+            crawl_config=CrawlerConfig(max_depth=1, max_pages=10),
+        )
+
+    assert "Starting generation pipeline for https://example.com/" in caplog.text
+    assert "Completed generation pipeline for https://example.com/ in " in caplog.text
+    assert "with 2 crawled pages and 2 selected pages" in caplog.text

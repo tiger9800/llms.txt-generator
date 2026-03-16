@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 
 import httpx
 import pytest
@@ -260,3 +261,36 @@ async def test_crawl_site_limits_same_depth_concurrency() -> None:
         )
 
     assert max_active_requests == 2
+
+
+@pytest.mark.anyio
+async def test_crawl_site_logs_lifecycle_and_fetch_timing(caplog: pytest.LogCaptureFixture) -> None:
+    pages = {
+        "https://example.com": "<html><body><p>Home</p></body></html>",
+    }
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        request_url = str(request.url).rstrip("/") or str(request.url)
+        html = pages.get(request_url)
+        if html is None:
+            return httpx.Response(status_code=404, request=request)
+
+        return httpx.Response(
+            status_code=200,
+            headers={"content-type": "text/html"},
+            text=html,
+            request=request,
+        )
+
+    transport = httpx.MockTransport(handler)
+    caplog.set_level(logging.DEBUG)
+    async with httpx.AsyncClient(transport=transport) as client:
+        await crawl_site(
+            "https://example.com",
+            config=CrawlerConfig(max_depth=0, max_pages=1),
+            client=client,
+        )
+
+    assert "Starting crawl for https://example.com/" in caplog.text
+    assert "Fetched https://example.com/ in " in caplog.text
+    assert "Completed crawl for https://example.com/ in " in caplog.text

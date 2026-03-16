@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections import deque
 from collections.abc import Iterable
 from dataclasses import dataclass
+from time import perf_counter
 from typing import TypeAlias
 
 import httpx
@@ -15,6 +17,7 @@ from utils.http_utils import get_async_client
 from utils.url_utils import is_html_like_url, is_same_domain, normalize_url, should_skip_url
 
 CrawledPage: TypeAlias = tuple[str, str, int]
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -47,20 +50,32 @@ async def crawl_site(
 
     crawler_config = config or CrawlerConfig()
     normalized_start_url = normalize_url(start_url)
+    crawl_started_at = perf_counter()
 
     if should_skip_url(normalized_start_url):
+        logger.info("Skipping crawl for %s because the URL is filtered.", normalized_start_url)
         return []
+
+    logger.info("Starting crawl for %s", normalized_start_url)
 
     async with get_async_client(
         client,
         follow_redirects=True,
         timeout=crawler_config.timeout,
     ) as active_client:
-        return await _crawl_with_client(
+        crawled_pages = await _crawl_with_client(
             normalized_start_url,
             crawler_config,
             active_client,
         )
+        elapsed_seconds = perf_counter() - crawl_started_at
+        logger.info(
+            "Completed crawl for %s in %.3fs with %d pages",
+            normalized_start_url,
+            elapsed_seconds,
+            len(crawled_pages),
+        )
+        return crawled_pages
 
 
 async def _crawl_with_client(
@@ -121,8 +136,18 @@ async def _fetch_html_with_limit(
     client: httpx.AsyncClient,
     semaphore: asyncio.Semaphore,
 ) -> str | None:
+    fetch_started_at = perf_counter()
     async with semaphore:
-        return await _fetch_html(url, client)
+        html = await _fetch_html(url, client)
+
+    elapsed_seconds = perf_counter() - fetch_started_at
+    logger.debug(
+        "Fetched %s in %.3fs (%s)",
+        url,
+        elapsed_seconds,
+        "html" if html is not None else "skipped",
+    )
+    return html
 
 
 def _pop_current_level(queue: deque[tuple[str, int]]) -> list[tuple[str, int]]:

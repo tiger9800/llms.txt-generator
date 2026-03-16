@@ -104,7 +104,45 @@ Recommended defaults:
 
 ------------------------------------------------------------------------
 
-## 3. `robots.txt` Support
+## 3. Timing and Observability Logs
+
+Status: implemented.
+
+The crawler and generation pipeline now emit lightweight lifecycle and
+timing logs to make performance easier to inspect.
+
+### Current behavior
+
+-   log crawl start and completion
+-   log per-request fetch duration at debug level
+-   log total pipeline duration
+-   log generated page counts and whether an existing `llms.txt` was
+    used
+
+### Implementation notes
+
+-   use the standard `logging` module
+-   keep logs structured and concise
+-   avoid noisy per-link logging inside tight loops
+-   include URL and elapsed time where helpful
+-   use `INFO` for lifecycle summaries and `DEBUG` for per-request fetch
+    timing
+
+### Example logging points
+
+-   `Starting crawl for https://example.com`
+-   `Fetched https://example.com/docs in 0.18s`
+-   `Pipeline completed in 1.42s with 24 selected pages`
+
+### Benefits
+
+-   makes performance issues easier to spot
+-   improves demos and debugging
+-   helps validate the impact of concurrent crawling
+
+------------------------------------------------------------------------
+
+## 4. `robots.txt` Support
 
 The crawler should behave responsibly and respect site-level crawl
 rules.
@@ -154,7 +192,7 @@ This prevents the entire crawl from failing due to temporary
 
 ------------------------------------------------------------------------
 
-## 4. Evaluation Harness
+## 5. Evaluation Harness
 
 Evaluate generator quality by comparing outputs with sites that already
 publish `llms.txt`.
@@ -204,7 +242,7 @@ for the initial core system.
 
 ------------------------------------------------------------------------
 
-## 5. Crawl Configuration
+## 6. Crawl Configuration
 
 Allow users to configure crawl parameters.
 
@@ -249,7 +287,7 @@ Example:
 
 ------------------------------------------------------------------------
 
-## 6. Sitemap Support
+## 7. Sitemap Support
 
 Before crawling deeply, check for sitemap availability.
 
@@ -289,7 +327,7 @@ deterministic system is stable.
 
 ------------------------------------------------------------------------
 
-## 7. AI-Generated Descriptions
+## 8. AI-Generated Descriptions
 
 Some pages lack meaningful descriptions.
 

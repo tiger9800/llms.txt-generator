@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+import logging
+from time import perf_counter
 from urllib.parse import urljoin, urlsplit
 from typing import Awaitable
 
@@ -21,6 +23,7 @@ CrawlService = Callable[
     [str],
     Awaitable[list[CrawledPage]],
 ]
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -63,10 +66,12 @@ class GenerationPipeline:
         """Run the full deterministic llms.txt generation pipeline."""
 
         normalized_root_url = normalize_url(root_url)
+        pipeline_started_at = perf_counter()
+        logger.info("Starting generation pipeline for %s", normalized_root_url)
         existing_llms_txt_result = await self._fetch_existing_llms_txt(normalized_root_url)
         if existing_llms_txt_result is not None and not force_generate:
             existing_llms_txt_url, existing_llms_txt = existing_llms_txt_result
-            return GenerationResult(
+            result = GenerationResult(
                 normalized_root_url=normalized_root_url,
                 crawled_pages=[],
                 selected_pages=[],
@@ -74,6 +79,9 @@ class GenerationPipeline:
                 used_existing_llms_txt=True,
                 existing_llms_txt_url=existing_llms_txt_url,
             )
+            logger.info("Using existing llms.txt from %s", existing_llms_txt_url)
+            _log_pipeline_completion(normalized_root_url, result, perf_counter() - pipeline_started_at)
+            return result
 
         crawler_config = crawl_config or CrawlerConfig()
         crawled_pages = await self._crawl_service(
@@ -85,13 +93,15 @@ class GenerationPipeline:
         selected_pages = self._prioritize_service(extracted_pages)
         llms_txt_markdown = self._generate_service(selected_pages)
 
-        return GenerationResult(
+        result = GenerationResult(
             normalized_root_url=normalized_root_url,
             crawled_pages=crawled_pages,
             selected_pages=selected_pages,
             llms_txt_markdown=llms_txt_markdown,
             existing_llms_txt_url=None,
         )
+        _log_pipeline_completion(normalized_root_url, result, perf_counter() - pipeline_started_at)
+        return result
 
     async def _fetch_existing_llms_txt(self, root_url: str) -> tuple[str, str] | None:
         async with get_async_client(self._client, follow_redirects=True, timeout=10.0) as client:
@@ -131,3 +141,17 @@ def _candidate_llms_txt_urls(root_url: str) -> list[str]:
         return [domain_root_url]
 
     return [path_local_url, domain_root_url]
+
+
+def _log_pipeline_completion(
+    normalized_root_url: str,
+    result: GenerationResult,
+    elapsed_seconds: float,
+) -> None:
+    logger.info(
+        "Completed generation pipeline for %s in %.3fs with %d crawled pages and %d selected pages",
+        normalized_root_url,
+        elapsed_seconds,
+        len(result.crawled_pages),
+        len(result.selected_pages),
+    )
