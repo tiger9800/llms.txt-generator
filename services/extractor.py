@@ -202,4 +202,9 @@ def _clean_title_text(title_text: str) -> str:
         return title_text
 
     reparsed_text = BeautifulSoup(title_text, "html.parser").get_text(" ", strip=True)
-    return _normalize_block_text(reparsed_text)
+    normalized_reparsed_text = _normalize_block_text(reparsed_text)
+    if "<" not in normalized_reparsed_text and ">" not in normalized_reparsed_text:
+        return normalized_reparsed_text
+
+    leading_text, _, _ = normalized_reparsed_text.partition("<")
+    return _normalize_block_text(leading_text)
