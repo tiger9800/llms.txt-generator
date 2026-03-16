@@ -95,16 +95,8 @@ def _build_fallback_title(url: str) -> str:
 
 
 def _build_fallback_description(soup: BeautifulSoup) -> str:
-    text_chunks: list[str] = []
-
-    for element in soup.find_all(string=True):
-        parent = element.parent
-        if parent is None or parent.name in {"head", "script", "style", "noscript", "title"}:
-            continue
-
-        text = " ".join(element.split())
-        if text:
-            text_chunks.append(text)
+    content_root = soup.find(["main", "article"]) or soup.body or soup
+    text_chunks = _extract_content_text_chunks(content_root)
 
     summary = " ".join(text_chunks).strip()
     if not summary:
@@ -136,3 +128,69 @@ def _has_rel(value: object, expected: str) -> bool:
 def _is_supported_canonical_href(href: str) -> bool:
     normalized_href = href.strip()
     return bool(normalized_href) and not any(character.isspace() for character in normalized_href)
+
+
+def _extract_content_text_chunks(content_root: Tag | BeautifulSoup) -> list[str]:
+    block_text_chunks = [
+        text
+        for text in (
+            _normalize_block_text(block.get_text(" ", strip=True))
+            for block in content_root.find_all(["p", "li", "dd"])
+        )
+        if _is_useful_text_chunk(text)
+    ]
+    if block_text_chunks:
+        return _deduplicate_chunks(block_text_chunks)
+
+    fallback_chunks: list[str] = []
+    for element in content_root.find_all(string=True):
+        parent = element.parent
+        if parent is None or parent.name in {
+            "head",
+            "header",
+            "footer",
+            "nav",
+            "script",
+            "style",
+            "noscript",
+            "title",
+        }:
+            continue
+
+        text = _normalize_block_text(str(element))
+        if _is_useful_text_chunk(text):
+            fallback_chunks.append(text)
+
+    return _deduplicate_chunks(fallback_chunks)
+
+
+def _normalize_block_text(text: str) -> str:
+    return " ".join(text.split()).strip()
+
+
+def _is_useful_text_chunk(text: str) -> bool:
+    if not text or text.lower() in {"html", "body"}:
+        return False
+    if len(text) < 25:
+        return False
+
+    word_count = len(text.split())
+    if word_count < 5:
+        return False
+
+    return True
+
+
+def _deduplicate_chunks(text_chunks: list[str]) -> list[str]:
+    deduplicated_chunks: list[str] = []
+    seen_chunks: set[str] = set()
+
+    for text in text_chunks:
+        normalized_text = text.lower()
+        if normalized_text in seen_chunks:
+            continue
+
+        seen_chunks.add(normalized_text)
+        deduplicated_chunks.append(text)
+
+    return deduplicated_chunks

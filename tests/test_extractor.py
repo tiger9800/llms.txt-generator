@@ -85,3 +85,41 @@ def test_extract_pages_returns_page_models_for_batch_inputs() -> None:
 
     assert len(pages) == 2
     assert [page.title for page in pages] == ["Home", "Docs"]
+
+
+def test_extract_page_fallback_description_skips_common_layout_boilerplate() -> None:
+    html = """
+    <html>
+      <body>
+        <header><p>html</p><nav><a href="/docs">Docs</a></nav></header>
+        <main>
+          <p>FastHTML helps teams build modern web apps in pure Python.</p>
+        </main>
+        <footer><p>About</p></footer>
+      </body>
+    </html>
+    """
+
+    page = extract_page("https://example.com/about", html, 1)
+
+    assert page.description == "FastHTML helps teams build modern web apps in pure Python."
+
+
+def test_extract_page_fallback_description_prefers_paragraph_content_over_repeated_menu_text() -> None:
+    html = """
+    <html>
+      <body>
+        <main>
+          <div>About Vision Foundations Technology Components Limits Docs</div>
+          <div>About Vision Foundations Technology Components Limits Docs</div>
+          <p>FastHTML explains the design tradeoffs behind the framework and how the pieces fit together.</p>
+        </main>
+      </body>
+    </html>
+    """
+
+    page = extract_page("https://example.com/about/vision", html, 1)
+
+    assert page.description == (
+        "FastHTML explains the design tradeoffs behind the framework and how the pieces fit together."
+    )

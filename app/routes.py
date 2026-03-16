@@ -8,7 +8,6 @@ from starlette.responses import PlainTextResponse, RedirectResponse
 
 from app.types import PipelineRunner
 from app.views import render_home_page, render_result_page
-from services.crawler import CrawlerConfig
 from services.pipeline import GenerationResult
 from utils.url_utils import normalize_url
 
@@ -31,10 +30,7 @@ def register_routes(rt, *, pipeline: PipelineRunner, result_store: dict[str, Gen
             )
 
         try:
-            result = await pipeline.run(
-                normalized_url,
-                crawl_config=CrawlerConfig(),
-            )
+            result = await pipeline.run(normalized_url)
         except Exception:
             return render_home_page(
                 url_value=normalized_url,

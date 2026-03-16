@@ -13,7 +13,7 @@ from services.pipeline import GenerationResult
 class StubPipeline:
     result: GenerationResult
 
-    async def run(self, root_url: str, *, crawl_config):
+    async def run(self, root_url: str, *, crawl_config=None):
         return self.result
 
 
@@ -75,3 +75,40 @@ def test_generate_route_renders_result_preview_and_download_link() -> None:
     assert "Selected pages:" in response.text
     assert "Download llms.txt" in response.text
     assert "Getting Started" in response.text
+
+
+def test_generate_route_shows_friendly_error_for_invalid_url() -> None:
+    app = create_app(
+        pipeline=StubPipeline(
+            result=GenerationResult(
+                normalized_root_url="https://example.com/",
+                crawled_pages=[],
+                selected_pages=[],
+                llms_txt_markdown="# Website",
+            )
+        )
+    )
+    client = Client(app)
+
+    response = client.post("/generate", data={"url": "not-a-url"})  # type: ignore[attr-defined]
+
+    assert response.status_code == 200
+    assert "Please enter a valid absolute http(s) URL." in response.text
+
+
+def test_download_route_redirects_when_result_is_missing() -> None:
+    app = create_app(
+        pipeline=StubPipeline(
+            result=GenerationResult(
+                normalized_root_url="https://example.com/",
+                crawled_pages=[],
+                selected_pages=[],
+                llms_txt_markdown="# Website",
+            )
+        )
+    )
+    client = Client(app)
+
+    response = client.get("/download/missing")
+
+    assert response.status_code == 303

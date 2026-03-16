@@ -56,17 +56,18 @@ def _deduplicate_pages(pages: list[Page]) -> list[Page]:
 
 def _score_page(page: Page) -> Page:
     score = 0.0
+    derived_category, section_boost = _section_boost(page.path)
 
     if page.is_homepage:
         score += 10.0
 
     score += max(0.0, 4.0 - float(page.path_depth))
-    score += _section_boost(page.path)[1]
+    score += section_boost
     score += _metadata_score(page)
     score -= _path_penalty(page.path)
     score -= _query_penalty(page.effective_url)
 
-    category = page.category or _section_boost(page.path)[0]
+    category = page.category or derived_category
     return replace(page, score=score, category=category)
 
 
@@ -108,7 +109,7 @@ def _page_identity(page: Page) -> str:
     return normalize_url(page.canonical_url or page.url)
 
 
-def _page_quality_key(page: Page) -> tuple[int, int, int, float]:
+def _page_quality_key(page: Page) -> tuple[int, int, int, int]:
     return (
         int(bool(page.description)),
         int(bool(page.title)),
