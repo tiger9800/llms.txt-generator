@@ -22,51 +22,47 @@ robustness.
 
 ## 1. Existing `llms.txt` Detection
 
-Before crawling a website, check whether the site already provides:
+Status: implemented.
+
+The pipeline now checks for an existing `llms.txt` before crawling and
+surfaces it in the UI when found.
+
+### Current behavior
+
+Candidate locations:
 
     https://domain.com/llms.txt
+    https://domain.com/subpath/llms.txt
 
-### Behavior
-
-If the file exists:
+If an existing file is found:
 
 1.  Fetch it
 2.  Display it to the user
-3.  Offer options:
-
--   Use existing `llms.txt`
--   Regenerate `llms.txt`
+3.  Allow the user to force generate instead of using the existing file
 
 UI toggle:
 
-    [ ] Force regenerate even if llms.txt exists
+    [ ] Force generate even if llms.txt exists
 
-### Benefits
-
--   avoids unnecessary crawling
--   improves usability
--   allows inspection of existing implementations
-
-### Implementation Notes
+### Implementation notes
 
 -   perform a simple HTTP GET
 -   follow redirects
 -   treat non-200 responses as "not found"
--   keep this check fast and lightweight
+-   try a path-local `llms.txt` first for subpath roots, then fall back
+    to the domain root
+-   report the actual detected `llms.txt` source URL in the result
 
 ------------------------------------------------------------------------
 
 ## 2. Concurrent BFS Crawling
 
-Sequential crawling becomes slow on larger websites.
+Status: implemented.
 
-Introduce bounded concurrency while preserving BFS structure.
+The crawler now uses layered concurrent BFS while preserving depth-based
+ordering.
 
-### Current algorithm
-
-    sequential BFS
-
-### Improved algorithm
+### Current behavior
 
     layered concurrent BFS
 
