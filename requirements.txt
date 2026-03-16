@@ -2,3 +2,4 @@ python-fasthtml
 httpx
 beautifulsoup4
 pytest
+pytest-cov
