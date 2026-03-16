@@ -84,20 +84,23 @@ Recommended defaults:
     max_depth = 2
     max_pages = 50
     max_concurrent_requests = 5
+    timeout = 10.0
 
-### Implementation
+### Implementation notes
 
-Use:
+-   `httpx.AsyncClient` is reused for non-blocking fetches
+-   `asyncio.Semaphore` enforces bounded concurrency
+-   pages at the same depth are fetched together
+-   next-level links are enqueued only after the current depth is
+    processed
+-   output order remains predictable by BFS depth
 
--   `httpx.AsyncClient`
--   `asyncio.Semaphore`
+### Preserved constraints
 
-### Benefits
-
--   faster crawl times
--   predictable behavior
--   easier to reason about
--   preserves a clear crawl order by depth
+-   `max_depth`
+-   `max_pages`
+-   `max_concurrent_requests`
+-   `timeout`
 
 ------------------------------------------------------------------------
 

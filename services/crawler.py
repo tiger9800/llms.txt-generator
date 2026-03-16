@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections import deque
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -22,6 +23,7 @@ class CrawlerConfig:
 
     max_depth: int = 2
     max_pages: int = 50
+    max_concurrent_requests: int = 5
     timeout: float = 10.0
 
     def __post_init__(self) -> None:
@@ -29,6 +31,8 @@ class CrawlerConfig:
             raise ValueError("max_depth must be greater than or equal to zero.")
         if self.max_pages <= 0:
             raise ValueError("max_pages must be greater than zero.")
+        if self.max_concurrent_requests <= 0:
+            raise ValueError("max_concurrent_requests must be greater than zero.")
         if self.timeout <= 0:
             raise ValueError("timeout must be greater than zero.")
 
@@ -65,37 +69,36 @@ async def _crawl_with_client(
     client: httpx.AsyncClient,
 ) -> list[CrawledPage]:
     queue: deque[tuple[str, int]] = deque([(start_url, 0)])
-    queued_urls: set[str] = {start_url}
-    visited_urls: set[str] = set()
+    seen_urls: set[str] = {start_url}
     crawled_pages: list[CrawledPage] = []
+    semaphore = asyncio.Semaphore(config.max_concurrent_requests)
 
     while queue and len(crawled_pages) < config.max_pages:
-        current_url, depth = queue.popleft()
-        queued_urls.discard(current_url)
+        current_level = _pop_current_level(queue)
+        fetch_results = await asyncio.gather(
+            *[
+                _fetch_html_with_limit(url, client, semaphore)
+                for url, _depth in current_level
+            ]
+        )
 
-        if current_url in visited_urls or depth > config.max_depth:
-            continue
+        for (current_url, depth), html in zip(current_level, fetch_results):
+            if len(crawled_pages) >= config.max_pages:
+                break
 
-        visited_urls.add(current_url)
-        html = await _fetch_html(current_url, client)
-        if html is None:
-            continue
-
-        crawled_pages.append((current_url, html, depth))
-
-        if depth == config.max_depth:
-            continue
-
-        for discovered_url in _extract_internal_links(html, current_url, start_url):
-            if (
-                discovered_url in visited_urls
-                or discovered_url in queued_urls
-                or len(crawled_pages) + len(queue) >= config.max_pages
-            ):
+            if depth > config.max_depth or html is None:
                 continue
 
-            queue.append((discovered_url, depth + 1))
-            queued_urls.add(discovered_url)
+            crawled_pages.append((current_url, html, depth))
+            if depth == config.max_depth:
+                continue
+
+            for discovered_url in _extract_internal_links(html, current_url, start_url):
+                if discovered_url in seen_urls:
+                    continue
+
+                seen_urls.add(discovered_url)
+                queue.append((discovered_url, depth + 1))
 
     return crawled_pages
 
@@ -111,6 +114,25 @@ async def _fetch_html(url: str, client: httpx.AsyncClient) -> str | None:
         return None
 
     return response.text
+
+
+async def _fetch_html_with_limit(
+    url: str,
+    client: httpx.AsyncClient,
+    semaphore: asyncio.Semaphore,
+) -> str | None:
+    async with semaphore:
+        return await _fetch_html(url, client)
+
+
+def _pop_current_level(queue: deque[tuple[str, int]]) -> list[tuple[str, int]]:
+    current_url, depth = queue.popleft()
+    current_level = [(current_url, depth)]
+
+    while queue and queue[0][1] == depth:
+        current_level.append(queue.popleft())
+
+    return current_level
 
 
 def _extract_internal_links(html: str, page_url: str, root_url: str) -> list[str]:
