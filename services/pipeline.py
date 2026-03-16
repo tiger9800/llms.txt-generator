@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 from typing import Awaitable
 
 import httpx
@@ -58,20 +58,21 @@ class GenerationPipeline:
         root_url: str,
         *,
         crawl_config: CrawlerConfig | None = None,
-        force_regenerate: bool = False,
+        force_generate: bool = False,
     ) -> GenerationResult:
         """Run the full deterministic llms.txt generation pipeline."""
 
         normalized_root_url = normalize_url(root_url)
-        existing_llms_txt = await self._fetch_existing_llms_txt(normalized_root_url)
-        if existing_llms_txt is not None and not force_regenerate:
+        existing_llms_txt_result = await self._fetch_existing_llms_txt(normalized_root_url)
+        if existing_llms_txt_result is not None and not force_generate:
+            existing_llms_txt_url, existing_llms_txt = existing_llms_txt_result
             return GenerationResult(
                 normalized_root_url=normalized_root_url,
                 crawled_pages=[],
                 selected_pages=[],
                 llms_txt_markdown=existing_llms_txt,
                 used_existing_llms_txt=True,
-                existing_llms_txt_url=urljoin(normalized_root_url, "/llms.txt"),
+                existing_llms_txt_url=existing_llms_txt_url,
             )
 
         crawler_config = crawl_config or CrawlerConfig()
@@ -89,14 +90,17 @@ class GenerationPipeline:
             crawled_pages=crawled_pages,
             selected_pages=selected_pages,
             llms_txt_markdown=llms_txt_markdown,
-            existing_llms_txt_url=urljoin(normalized_root_url, "/llms.txt"),
+            existing_llms_txt_url=None,
         )
 
-    async def _fetch_existing_llms_txt(self, root_url: str) -> str | None:
-        llms_txt_url = urljoin(root_url, "/llms.txt")
-
+    async def _fetch_existing_llms_txt(self, root_url: str) -> tuple[str, str] | None:
         async with get_async_client(self._client, follow_redirects=True, timeout=10.0) as client:
-            return await _fetch_llms_txt_with_client(client, llms_txt_url)
+            for llms_txt_url in _candidate_llms_txt_urls(root_url):
+                llms_txt = await _fetch_llms_txt_with_client(client, llms_txt_url)
+                if llms_txt is not None:
+                    return llms_txt_url, llms_txt
+
+        return None
 
 
 async def _fetch_llms_txt_with_client(
@@ -112,3 +116,18 @@ async def _fetch_llms_txt_with_client(
         return None
 
     return response.text
+
+
+def _candidate_llms_txt_urls(root_url: str) -> list[str]:
+    split_result = urlsplit(root_url)
+    normalized_path = split_result.path.rstrip("/")
+    domain_root_url = urljoin(root_url, "/llms.txt")
+
+    if not normalized_path:
+        return [domain_root_url]
+
+    path_local_url = f"{root_url.rstrip('/')}/llms.txt"
+    if path_local_url == domain_root_url:
+        return [domain_root_url]
+
+    return [path_local_url, domain_root_url]

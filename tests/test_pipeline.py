@@ -127,10 +127,43 @@ async def test_generation_pipeline_uses_existing_llms_txt_when_available() -> No
     assert result.llms_txt_markdown == "# Existing llms.txt"
     assert result.crawled_pages == []
     assert result.selected_pages == []
+    assert result.existing_llms_txt_url == "https://example.com/llms.txt"
 
 
 @pytest.mark.anyio
-async def test_generation_pipeline_can_force_regenerate_even_when_llms_txt_exists() -> None:
+async def test_generation_pipeline_prefers_path_local_llms_txt_for_subpath_roots() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        request_url = str(request.url)
+        if request_url == "https://example.com/docs/llms.txt":
+            return httpx.Response(
+                status_code=200,
+                text="# Docs llms.txt",
+                request=request,
+            )
+        if request_url == "https://example.com/llms.txt":
+            return httpx.Response(
+                status_code=200,
+                text="# Root llms.txt",
+                request=request,
+            )
+
+        return httpx.Response(status_code=404, request=request)
+
+    async def unexpected_crawl_service(*args, **kwargs):
+        raise AssertionError("crawl_service should not be called when a path-local llms.txt exists")
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        pipeline = GenerationPipeline(client=client, crawl_service=unexpected_crawl_service)
+        result = await pipeline.run("https://example.com/docs/")
+
+    assert result.used_existing_llms_txt is True
+    assert result.llms_txt_markdown == "# Docs llms.txt"
+    assert result.existing_llms_txt_url == "https://example.com/docs/llms.txt"
+
+
+@pytest.mark.anyio
+async def test_generation_pipeline_can_force_generate_even_when_llms_txt_exists() -> None:
     pages = {
         "https://example.com": """
             <html>
@@ -168,7 +201,7 @@ async def test_generation_pipeline_can_force_regenerate_even_when_llms_txt_exist
         result = await pipeline.run(
             "https://example.com/",
             crawl_config=CrawlerConfig(max_depth=1, max_pages=10),
-            force_regenerate=True,
+            force_generate=True,
         )
 
     assert result.used_existing_llms_txt is False
@@ -176,3 +209,4 @@ async def test_generation_pipeline_can_force_regenerate_even_when_llms_txt_exist
         "https://example.com/",
         "https://example.com/docs/start",
     ]
+    assert result.existing_llms_txt_url is None

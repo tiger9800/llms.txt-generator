@@ -22,11 +22,11 @@ def render_home_page(*, url_value: str = "", error_message: str | None = None):
         Div(
             Input(
                 type="checkbox",
-                name="force_regenerate",
+                name="force_generate",
                 value="1",
-                id="force_regenerate",
+                id="force_generate",
             ),
-            "Force regenerate even if llms.txt exists",
+            "Force generate even if llms.txt exists",
             style="margin-top: 1rem;",
         ),
         Div(Button("Generate llms.txt", type="submit"), style="margin-top: 1rem;"),
