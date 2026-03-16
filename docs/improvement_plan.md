@@ -8,7 +8,7 @@ Improve the system along three axes:
 2.  Performance
 3.  Output quality and evaluation
 
-The improvements are organized into tiers so that the highest‑impact
+The improvements are organized into tiers so that the highest-impact
 changes are implemented first.
 
 ------------------------------------------------------------------------
@@ -20,7 +20,7 @@ robustness.
 
 ------------------------------------------------------------------------
 
-## 1. Detect Existing llms.txt
+## 1. Existing `llms.txt` Detection
 
 Before crawling a website, check whether the site already provides:
 
@@ -34,8 +34,8 @@ If the file exists:
 2.  Display it to the user
 3.  Offer options:
 
--   Use existing llms.txt
--   Regenerate llms.txt
+-   Use existing `llms.txt`
+-   Regenerate `llms.txt`
 
 UI toggle:
 
@@ -49,9 +49,10 @@ UI toggle:
 
 ### Implementation Notes
 
--   Perform a simple HTTP GET
--   Follow redirects
--   Treat non‑200 responses as "not found"
+-   perform a simple HTTP GET
+-   follow redirects
+-   treat non-200 responses as "not found"
+-   keep this check fast and lightweight
 
 ------------------------------------------------------------------------
 
@@ -74,13 +75,13 @@ Introduce bounded concurrency while preserving BFS structure.
 1.  Maintain BFS depth levels
 2.  Fetch pages at the same depth concurrently
 3.  Extract links
-4.  Enqueue next‑level links
+4.  Enqueue next-level links
 
 ### Constraints
 
--   max_depth
--   max_pages
--   max_concurrent_requests
+-   `max_depth`
+-   `max_pages`
+-   `max_concurrent_requests`
 
 Recommended defaults:
 
@@ -92,27 +93,79 @@ Recommended defaults:
 
 Use:
 
--   httpx.AsyncClient
--   asyncio.Semaphore
+-   `httpx.AsyncClient`
+-   `asyncio.Semaphore`
 
 ### Benefits
 
 -   faster crawl times
 -   predictable behavior
 -   easier to reason about
+-   preserves a clear crawl order by depth
 
 ------------------------------------------------------------------------
 
-## 3. Evaluation Against Known Sites
+## 3. `robots.txt` Support
+
+The crawler should behave responsibly and respect site-level crawl
+rules.
+
+Before fetching crawl targets, check:
+
+    https://domain.com/robots.txt
+
+### Behavior
+
+-   fetch and parse `robots.txt`
+
+-   determine whether a URL is allowed before crawling it
+
+-   skip disallowed URLs
+
+-   use a custom user-agent such as:
+
+    llmstxt-generator/1.0
+
+### Implementation Notes
+
+Recommended implementation:
+
+-   `urllib.robotparser` for parsing
+
+-   a small helper module such as:
+
+    utils/robots.py
+
+### Failure Handling
+
+If `robots.txt` cannot be fetched or parsed:
+
+-   fail open
+-   continue crawling
+-   log the failure
+
+This prevents the entire crawl from failing due to temporary
+`robots.txt` issues.
+
+### Benefits
+
+-   demonstrates responsible crawler design
+-   improves engineering maturity
+-   prevents crawling obviously disallowed paths
+
+------------------------------------------------------------------------
+
+## 4. Evaluation Harness
 
 Evaluate generator quality by comparing outputs with sites that already
-publish llms.txt.
+publish `llms.txt`.
 
 ### Example sites
 
--   firecrawl.dev
+-   `firecrawl.dev`
 -   documentation sites
--   open‑source project docs
+-   open-source project docs
+-   other public sites with existing `llms.txt`
 
 ### Evaluation Metrics
 
@@ -120,6 +173,7 @@ publish llms.txt.
 -   section similarity
 -   description coverage
 -   page recall
+-   page precision
 
 ### Evaluation Harness
 
@@ -129,27 +183,29 @@ Create:
 
 ### Process
 
-1.  Fetch existing llms.txt
-2.  Generate new llms.txt
+1.  Fetch existing `llms.txt`
+2.  Generate a new `llms.txt`
 3.  Compare URL sets
 4.  Report precision and recall
+5.  Inspect qualitative differences in selected pages and descriptions
 
 ### Benefits
 
 -   demonstrates engineering rigor
 -   validates prioritization heuristics
 -   improves output quality
+-   gives a repeatable way to evaluate improvements
 
 ------------------------------------------------------------------------
 
-# Tier 2 --- Product Improvements
+# Tier 2 --- Product and Crawl Improvements
 
-These features improve usability but are not required for the core
-system.
+These features improve usability and crawl quality but are not required
+for the initial core system.
 
 ------------------------------------------------------------------------
 
-## 4. Advanced Crawl Configuration
+## 5. Crawl Configuration
 
 Allow users to configure crawl parameters.
 
@@ -157,10 +213,10 @@ Allow users to configure crawl parameters.
 
 Advanced Options:
 
--   max_depth
--   max_pages
--   request_timeout
--   max_concurrency
+-   `max_depth`
+-   `max_pages`
+-   `request_timeout`
+-   `max_concurrency`
 
 Example defaults:
 
@@ -186,6 +242,45 @@ Example:
         timeout_seconds: float = 10
         max_concurrency: int = 5
 
+### Benefits
+
+-   gives users more control
+-   helps with testing and benchmarking
+-   makes the tool more flexible without changing core logic
+
+------------------------------------------------------------------------
+
+## 6. Sitemap Support
+
+Before crawling deeply, check for sitemap availability.
+
+Primary path:
+
+    /sitemap.xml
+
+Also consider sitemap declarations inside `robots.txt`.
+
+### Behavior
+
+If a sitemap is present:
+
+1.  Parse sitemap URLs
+2.  Seed the crawler with sitemap entries
+3.  Prefer sitemap-discovered URLs as high-quality crawl seeds
+
+### Benefits
+
+-   faster discovery
+-   better coverage
+-   less crawling required
+-   often improves recall on documentation-heavy sites
+
+### Implementation Notes
+
+-   keep sitemap parsing simple for V1
+-   support standard XML sitemap format
+-   treat sitemap seeding as an enhancement, not a hard dependency
+
 ------------------------------------------------------------------------
 
 # Tier 3 --- Optional AI Enhancements
@@ -195,15 +290,15 @@ deterministic system is stable.
 
 ------------------------------------------------------------------------
 
-## 5. AI‑Generated Descriptions
+## 7. AI-Generated Descriptions
 
 Some pages lack meaningful descriptions.
 
-Allow optional LLM‑based description generation.
+Allow optional LLM-based description generation.
 
 ### Behavior
 
-If page.description is missing:
+If `page.description` is missing or clearly low quality:
 
     generate summary using LLM
 
@@ -213,59 +308,26 @@ If page.description is missing:
 
 ### Guidelines
 
--   only generate descriptions when missing
+-   only generate descriptions when missing or poor
 -   limit token usage
--   cache generated descriptions
+-   cache generated descriptions where practical
 -   clearly mark generated descriptions in debug output
+-   keep deterministic extraction as the default behavior
 
 ### Benefits
 
--   improves final llms.txt readability
+-   improves final `llms.txt` readability
 -   improves usefulness for LLM consumers
+-   fills in gaps on sites with poor metadata
 
-------------------------------------------------------------------------
+### Risks
 
-# Additional Improvements
+-   increased latency
+-   increased cost
+-   less deterministic output
+-   possible hallucinated descriptions
 
-------------------------------------------------------------------------
-
-## Sitemap Support
-
-Before crawling, check:
-
-    /sitemap.xml
-
-If present:
-
-1.  Parse URLs
-2.  Seed crawler with sitemap entries
-
-### Benefits
-
--   faster discovery
--   better coverage
--   less crawling required
-
-------------------------------------------------------------------------
-
-## Debug / Explainability Output
-
-Expose reasoning behind page selection.
-
-Example debug output:
-
-    /docs/api
-    score: 0.92
-    reasons:
-      - shallow path
-      - docs keyword
-      - high‑quality metadata
-
-### Benefits
-
--   improves transparency
--   helps debugging prioritization
--   useful for demos
+Because of these tradeoffs, AI enhancement should remain optional.
 
 ------------------------------------------------------------------------
 
@@ -273,13 +335,20 @@ Example debug output:
 
 Recommended order:
 
-1.  Existing llms.txt detection
-2.  Concurrent BFS crawler
-3.  Evaluation harness
-4.  Crawl configuration options
-5.  Sitemap support
-6.  AI description generation
-7.  Debug / explainability output
+1.  existing `llms.txt` detection
+2.  concurrent BFS crawler
+3.  `robots.txt` support
+4.  evaluation harness
+5.  crawl configuration
+6.  sitemap support
+7.  AI description generation
+
+This order ensures that:
+
+-   core functionality improves first
+-   crawl performance and crawl hygiene are addressed early
+-   evaluation is available before optional AI features
+-   optional AI enhancements are implemented last
 
 ------------------------------------------------------------------------
 
@@ -287,9 +356,9 @@ Recommended order:
 
 When implementing improvements:
 
--   follow docs/coding_guidelines.md
+-   follow `docs/coding_guidelines.md`
 
--   respect architecture defined in docs/architecture.md
+-   respect architecture defined in `docs/architecture.md`
 
 -   avoid unnecessary dependencies
 
@@ -302,8 +371,25 @@ All new features should include:
 -   unit tests
 -   clear type hints
 -   small focused functions
+-   explicit error handling
 
 Prefer deterministic logic unless AI assistance is explicitly required.
+
+------------------------------------------------------------------------
+
+# Suggested File Targets
+
+Likely files to add or update:
+
+-   `services/crawler.py`
+-   `services/pipeline.py`
+-   `services/generator.py`
+-   `models/crawl_config.py`
+-   `utils/robots.py`
+-   `utils/sitemap.py`
+-   `tests/test_crawler.py`
+-   `tests/test_pipeline.py`
+-   `tests/evaluation/run_eval.py`
 
 ------------------------------------------------------------------------
 
@@ -319,5 +405,6 @@ By implementing these improvements, the system will become:
 
 -   faster
 -   more reliable
+-   more respectful of crawl constraints
 -   easier to validate
--   more useful as a real‑world tool
+-   more useful as a real-world tool
