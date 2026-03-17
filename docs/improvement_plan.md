@@ -192,37 +192,75 @@ This prevents the entire crawl from failing due to temporary
 
 ## 5. Evaluation Harness
 
-Evaluate generator quality by comparing outputs with sites that already
-publish `llms.txt`.
+Status: implemented and refined.
 
-### Example sites
+The project now includes a lightweight evaluation harness for comparing
+generated output against existing `llms.txt` files.
 
--   `firecrawl.dev`
--   documentation sites
--   open-source project docs
--   other public sites with existing `llms.txt`
+### Current setup
+
+-   a checked-in site list lives in:
+
+        tests/evaluation/sites.txt
+
+-   the harness is implemented in:
+
+        tests/evaluation/run_eval.py
+
+-   the CLI runs the same generation configuration for every site rather
+    than tuning crawl limits to match the target `llms.txt`
+-   per-site failures are reported and do not abort the full batch
 
 ### Evaluation Metrics
 
 -   URL overlap
+-   slug/path overlap
+-   title overlap
 -   section similarity
 -   description coverage
 -   page recall
 -   page precision
-
-### Evaluation Harness
-
-Create:
-
-    tests/evaluation/run_eval.py
 
 ### Process
 
 1.  Fetch existing `llms.txt`
 2.  Generate a new `llms.txt`
 3.  Compare URL sets
-4.  Report precision and recall
-5.  Inspect qualitative differences in selected pages and descriptions
+4.  Compare normalized slug/path identities
+5.  Compare normalized title sets
+6.  Report precision and recall
+7.  Inspect qualitative differences in selected pages and descriptions
+
+### Implementation notes
+
+-   parse existing and generated `llms.txt` files into structured page
+    entries
+-   compute URL overlap, slug overlap, title overlap, precision, recall,
+    description coverage, and section similarity
+-   support a small CLI entry point for manual evaluation runs
+-   print a small sample of generated-only and existing-only titles to
+    make mismatches easier to inspect
+-   support optional flags for deeper inspection:
+
+        --show-markdown
+        --show-all-diffs
+
+-   include local tests for parsing, metric calculation, and mocked
+    site evaluation
+
+### Notes from real-site comparisons
+
+-   exact URL overlap is often too strict for curated `llms.txt` files
+    that point to Markdown twins, raw source documents, or hand-picked
+    resources
+-   slug/path overlap is a useful middle-ground metric when URLs differ
+    only by extensions such as `.md` or `index.html`
+-   title overlap and qualitative entry diffs provide a more useful
+    signal when URLs differ but topics clearly align
+-   eval-only title normalization strips common site-brand suffixes and
+    normalizes escaped punctuation to make comparison fairer without
+    changing generation behavior
+-   the harness should help explain differences, not just score them
 
 ### Benefits
 
