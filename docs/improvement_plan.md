@@ -233,6 +233,41 @@ Create:
 
 ------------------------------------------------------------------------
 
+## 6. Anti-Bot and Interstitial Detection
+
+Some sites return bot checks, JavaScript-only walls, or access-denied
+pages instead of real content.
+
+Detect these pages early and avoid generating misleading `llms.txt`
+output from them.
+
+### Behavior
+
+-   inspect fetched root-page content for common anti-bot or
+    interstitial patterns
+-   detect phrases such as:
+    - `verify that you're not a robot`
+    - `enable javascript`
+    - `access denied`
+    - `captcha`
+    - `checking your browser`
+-   if detected, stop generation and show a friendly error to the user
+
+### Implementation Notes
+
+-   keep detection heuristic and deterministic
+-   focus first on the root page response
+-   avoid running the full pipeline on clearly blocked/interstitial pages
+-   add tests with representative blocked-page HTML samples
+
+### Benefits
+
+-   prevents misleading output
+-   improves trust in the tool
+-   handles protected sites more gracefully
+
+------------------------------------------------------------------------
+
 # Tier 2 --- Product and Crawl Improvements
 
 These features improve usability and crawl quality but are not required
@@ -240,7 +275,7 @@ for the initial core system.
 
 ------------------------------------------------------------------------
 
-## 6. Crawl Configuration
+## 7. Crawl Configuration
 
 Allow users to configure crawl parameters.
 
@@ -285,7 +320,7 @@ Example:
 
 ------------------------------------------------------------------------
 
-## 7. Sitemap Support
+## 8. Sitemap Support
 
 Before crawling deeply, check for sitemap availability.
 
@@ -325,7 +360,7 @@ deterministic system is stable.
 
 ------------------------------------------------------------------------
 
-## 8. AI-Generated Descriptions
+## 9. AI-Generated Descriptions
 
 Some pages lack meaningful descriptions.
 
