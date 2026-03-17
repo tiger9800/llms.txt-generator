@@ -165,7 +165,7 @@ def render_progress_page(
     """Render a polling progress page while generation runs in the background."""
 
     return Titled(
-        "Generating llms.txt",
+        "Automated llms.txt Generator",
         Div(
             H1("Generating llms.txt"),
             Div(
