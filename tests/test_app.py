@@ -10,7 +10,7 @@ from fasthtml.core import Client
 from app.main import create_app
 from models.page import Page
 from services.crawler import CrawlProgress
-from services.pipeline import GenerationResult
+from services.pipeline import CrawlSummary, GenerationResult
 
 
 @dataclass
@@ -94,6 +94,11 @@ def test_generate_route_renders_progress_page_and_result_preview() -> None:
             ),
         ],
         llms_txt_markdown="# Example Platform\n\n## Documentation\n- [Getting Started](https://example.com/docs/start): Learn how to start building.",
+        crawl_summary=CrawlSummary(
+            pages_crawled=2,
+            depth_reached=1,
+            crawl_time_seconds=0.42,
+        ),
     )
     stub_pipeline = StubPipeline(result=result)
     app = create_app(pipeline=stub_pipeline)
@@ -118,6 +123,10 @@ def test_generate_route_renders_progress_page_and_result_preview() -> None:
     assert "llms.txt Preview" in result_response.text
     assert "Crawled pages:" in result_response.text
     assert "Selected pages:" in result_response.text
+    assert "Crawl Summary" in result_response.text
+    assert "Pages crawled:" in result_response.text
+    assert "Depth reached:" in result_response.text
+    assert "Total crawl time:" in result_response.text
     assert "Download llms.txt" in result_response.text
     assert "Getting Started" in result_response.text
 

@@ -63,14 +63,27 @@ services/crawler.py services/pipeline.py app/routes.py app/views.py
 
 # 2. Crawl Summary Panel
 
-After generation finishes, display crawl statistics.
+Status: implemented.
+
+After generation finishes, the result page now displays a compact crawl
+summary panel when generation was produced from a crawl rather than an
+existing `llms.txt`.
+
+Current UI:
+
+-   shows a dedicated `Crawl Summary` section on the result page
+-   displays:
+    -   pages crawled
+    -   depth reached
+    -   total crawl time
+-   omits the panel when an existing `llms.txt` was used and no crawl
+    happened
 
 Example output:
 
 Crawl Summary
 
-Pages crawled: 27 Pages skipped by robots.txt: 4 Depth reached: 2 Total
-crawl time: 1.8 seconds
+Pages crawled: 27 Depth reached: 2 Total crawl time: 1.8 seconds
 
 Benefits:
 
@@ -78,7 +91,13 @@ Benefits:
 -   demonstrates crawler quality
 -   helps debugging
 
-Data already exists in logs and can be surfaced in the UI.
+Implementation notes:
+
+-   reuse pipeline result data rather than recomputing statistics in the
+    view layer
+-   keep the web layer focused on rendering
+-   defer `robots.txt` skip counts to the separate robots debug item
+    since that tracking is not yet exposed in the pipeline
 
 ------------------------------------------------------------------------
 

@@ -79,6 +79,10 @@ async def test_generation_pipeline_runs_end_to_end_with_mocked_http_site() -> No
         "https://example.com/docs/start",
         "https://example.com/blog",
     ]
+    assert result.crawl_summary is not None
+    assert result.crawl_summary.pages_crawled == 3
+    assert result.crawl_summary.depth_reached == 2
+    assert result.crawl_summary.crawl_time_seconds >= 0.0
     assert result.selected_pages[1].category == "Documentation"
     assert "## Documentation" in result.llms_txt_markdown
     assert "## Resources" in result.llms_txt_markdown
@@ -102,6 +106,9 @@ async def test_generation_pipeline_returns_empty_output_when_crawl_finds_no_page
     assert result.crawled_pages == []
     assert result.selected_pages == []
     assert result.llms_txt_markdown == "# Website"
+    assert result.crawl_summary is not None
+    assert result.crawl_summary.pages_crawled == 0
+    assert result.crawl_summary.depth_reached == 0
 
 
 @pytest.mark.anyio
@@ -130,6 +137,7 @@ async def test_generation_pipeline_uses_existing_llms_txt_when_available() -> No
     assert result.crawled_pages == []
     assert result.selected_pages == []
     assert result.existing_llms_txt_url == "https://example.com/llms.txt"
+    assert result.crawl_summary is None
 
 
 @pytest.mark.anyio
@@ -162,6 +170,7 @@ async def test_generation_pipeline_prefers_path_local_llms_txt_for_subpath_roots
     assert result.used_existing_llms_txt is True
     assert result.llms_txt_markdown == "# Docs llms.txt"
     assert result.existing_llms_txt_url == "https://example.com/docs/llms.txt"
+    assert result.crawl_summary is None
 
 
 @pytest.mark.anyio
@@ -212,6 +221,8 @@ async def test_generation_pipeline_can_force_generate_even_when_llms_txt_exists(
         "https://example.com/docs/start",
     ]
     assert result.existing_llms_txt_url is None
+    assert result.crawl_summary is not None
+    assert result.crawl_summary.pages_crawled == 2
 
 
 @pytest.mark.anyio

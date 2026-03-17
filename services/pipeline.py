@@ -27,6 +27,15 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
+class CrawlSummary:
+    """Compact crawl statistics for display in the UI."""
+
+    pages_crawled: int
+    depth_reached: int
+    crawl_time_seconds: float
+
+
+@dataclass(slots=True)
 class GenerationResult:
     """Structured result returned by the generation pipeline."""
 
@@ -36,6 +45,7 @@ class GenerationResult:
     llms_txt_markdown: str
     used_existing_llms_txt: bool = False
     existing_llms_txt_url: str | None = None
+    crawl_summary: CrawlSummary | None = None
 
 
 class GenerationPipeline:
@@ -90,11 +100,17 @@ class GenerationPipeline:
             if crawl_config is None
             else replace(crawl_config, respect_robots_txt=respect_robots_txt)
         )
+        crawl_started_at = perf_counter()
         crawled_pages = await self._crawl_service(
             normalized_root_url,
             config=crawler_config,
             client=self._client,
             progress_callback=progress_callback,
+        )
+        crawl_summary = CrawlSummary(
+            pages_crawled=len(crawled_pages),
+            depth_reached=max((depth for _, _, depth in crawled_pages), default=0),
+            crawl_time_seconds=perf_counter() - crawl_started_at,
         )
         extracted_pages = self._extract_service(crawled_pages)
         selected_pages = self._prioritize_service(extracted_pages)
@@ -106,6 +122,7 @@ class GenerationPipeline:
             selected_pages=selected_pages,
             llms_txt_markdown=llms_txt_markdown,
             existing_llms_txt_url=None,
+            crawl_summary=crawl_summary,
         )
         _log_pipeline_completion(normalized_root_url, result, perf_counter() - pipeline_started_at)
         return result

@@ -85,12 +85,26 @@ def render_result_page(result: GenerationResult, *, download_path: str):
         Li(Strong("Crawled pages: "), str(len(result.crawled_pages))),
         Li(Strong("Selected pages: "), str(len(result.selected_pages))),
     )
+    crawl_summary_block = ()
+    if result.crawl_summary is not None:
+        crawl_summary_block = (
+            H2("Crawl Summary"),
+            Ul(
+                Li(Strong("Pages crawled: "), str(result.crawl_summary.pages_crawled)),
+                Li(Strong("Depth reached: "), str(result.crawl_summary.depth_reached)),
+                Li(
+                    Strong("Total crawl time: "),
+                    f"{result.crawl_summary.crawl_time_seconds:.2f} seconds",
+                ),
+            ),
+        )
 
     return Titled(
         "llms.txt Preview",
         Div(
             H1("llms.txt Preview"),
             summary,
+            *crawl_summary_block,
             Div(
                 Button("Download llms.txt", type="button", onclick=f"window.location='{download_path}'"),
                 style="margin: 1rem 0;",
