@@ -107,7 +107,7 @@ def test_generate_route_renders_progress_page_and_result_preview() -> None:
 
     assert response.status_code == 200
     assert "Generating llms.txt" in response.text
-    assert "Working..." in response.text
+    assert "Crawling and generating llms.txt..." in response.text
     assert "Pages visited:" in response.text
     assert '/progress/' in response.text
     assert "@keyframes spin" in response.text
@@ -122,7 +122,9 @@ def test_generate_route_renders_progress_page_and_result_preview() -> None:
     result_response = client.get(f"/result/{job_id}")
 
     assert result_response.status_code == 200
-    assert "llms.txt Preview" in result_response.text
+    assert "Automated llms.txt Generator" in result_response.text
+    assert "Generation Summary" in result_response.text
+    assert "Generated llms.txt" in result_response.text
     assert "Crawled pages:" in result_response.text
     assert "Selected pages:" in result_response.text
     assert "Crawl Summary" in result_response.text

@@ -35,13 +35,13 @@ def render_result_page(result: GenerationResult, *, download_path: str):
     """Render the result page with crawl summary and llms.txt preview."""
 
     return Titled(
-        "llms.txt Preview",
+        "Automated llms.txt Generator",
         Div(
-            H1("llms.txt Preview"),
+            H1("Generation Summary"),
             _render_result_summary(result),
             *_render_crawl_summary_block(result),
             _render_result_actions(download_path),
-            H2("Preview"),
+            H2("Generated llms.txt"),
             Pre(result.llms_txt_markdown, id="llms-txt-preview"),
             Div(
                 Button("Generate another", type="button", onclick="window.location='/'"),
@@ -124,7 +124,7 @@ def _render_result_summary(result: GenerationResult) -> Ul:
         Li(Strong("Normalized URL: "), result.normalized_root_url),
         Li(
             Strong("Source: "),
-            "Existing llms.txt" if result.used_existing_llms_txt else "Generated from crawl",
+            "Existing llms.txt" if result.used_existing_llms_txt else "Generated from website crawl",
         ),
         Li(Strong("Crawled pages: "), str(len(result.crawled_pages))),
         Li(Strong("Selected pages: "), str(len(result.selected_pages))),
@@ -179,7 +179,7 @@ def render_progress_page(
                         "animation: spin 0.8s linear infinite;"
                     ),
                 ),
-                Strong("Working...", id="loading-label"),
+                Strong("Crawling and generating llms.txt...", id="loading-label"),
                 id="loading-state",
                 style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;",
             ),
