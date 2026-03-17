@@ -127,6 +127,9 @@ def test_generate_route_renders_progress_page_and_result_preview() -> None:
     assert "Pages crawled:" in result_response.text
     assert "Depth reached:" in result_response.text
     assert "Total crawl time:" in result_response.text
+    assert "Copy llms.txt" in result_response.text
+    assert 'id="llms-txt-preview"' in result_response.text
+    assert "copyLlmsTxt()" in result_response.text
     assert "Download llms.txt" in result_response.text
     assert "Getting Started" in result_response.text
 

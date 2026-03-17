@@ -98,7 +98,6 @@ def render_result_page(result: GenerationResult, *, download_path: str):
                 ),
             ),
         )
-
     return Titled(
         "llms.txt Preview",
         Div(
@@ -106,15 +105,18 @@ def render_result_page(result: GenerationResult, *, download_path: str):
             summary,
             *crawl_summary_block,
             Div(
+                Button("Copy llms.txt", type="button", onclick="copyLlmsTxt()"),
                 Button("Download llms.txt", type="button", onclick=f"window.location='{download_path}'"),
-                style="margin: 1rem 0;",
+                P("", id="copy-status", style="display: inline-block; margin-left: 1rem;"),
+                style="margin: 1rem 0; display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;",
             ),
             H2("Preview"),
-            Pre(result.llms_txt_markdown),
+            Pre(result.llms_txt_markdown, id="llms-txt-preview"),
             Div(
                 Button("Generate another", type="button", onclick="window.location='/'"),
                 style="margin-top: 1rem;",
             ),
+            _render_copy_script(),
             style="max-width: 56rem; margin: 2rem auto; padding: 0 1rem;",
         ),
     )
@@ -204,4 +206,65 @@ window.addEventListener("load", () => {{
             script,
             style="max-width: 48rem; margin: 2rem auto; padding: 0 1rem;",
         ),
+    )
+
+
+def _render_copy_script() -> Script:
+    """Return the inline script used by the result-page copy button."""
+
+    return Script(
+        """
+function fallbackCopyText(text) {
+  const copyBuffer = document.createElement("textarea");
+  copyBuffer.value = text;
+  copyBuffer.setAttribute("readonly", "");
+  copyBuffer.style.position = "absolute";
+  copyBuffer.style.left = "-9999px";
+  document.body.appendChild(copyBuffer);
+  copyBuffer.select();
+  copyBuffer.setSelectionRange(0, copyBuffer.value.length);
+
+  try {
+    return document.execCommand("copy");
+  } finally {
+    document.body.removeChild(copyBuffer);
+  }
+}
+
+async function copyLlmsTxt() {
+  const preview = document.getElementById("llms-txt-preview");
+  const copyStatus = document.getElementById("copy-status");
+  if (preview === null || copyStatus === null) {
+    return;
+  }
+
+  const previewText = preview.textContent || "";
+
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(previewText);
+      copyStatus.textContent = "Copied.";
+      return;
+    }
+
+    if (fallbackCopyText(previewText)) {
+      copyStatus.textContent = "Copied.";
+      return;
+    }
+
+    copyStatus.textContent = "Copy failed.";
+  } catch (error) {
+    if (fallbackCopyText(previewText)) {
+      copyStatus.textContent = "Copied.";
+      return;
+    }
+
+    copyStatus.textContent = "Copy failed.";
+  }
+
+  if (!navigator.clipboard && !window.isSecureContext) {
+    copyStatus.textContent = "Copy failed.";
+  }
+}
+"""
     )

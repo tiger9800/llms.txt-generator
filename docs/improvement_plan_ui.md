@@ -101,58 +101,18 @@ Implementation notes:
 
 ------------------------------------------------------------------------
 
-# 3. Robots.txt Debug Output
+# 3. Output Copy Button
 
-The crawler already respects robots.txt but the UI does not show this.
+Status: implemented.
 
-Expose skipped URLs.
+The result page now includes a copy button for the generated
+`llms.txt` preview.
 
-Example:
+Current UI:
 
-Skipped by robots.txt:
-
-/admin /login /search
-
-Benefits:
-
--   demonstrates correct crawler behavior
--   builds trust
--   useful for debugging
-
-Implementation:
-
-track skipped URLs inside crawler state.
-
-------------------------------------------------------------------------
-
-# 4. Example Input URLs
-
-Add example sites users can click to try.
-
-Example section in UI:
-
-Try an example:
-
--   docs.python.org
--   firecrawl.dev
--   pydantic.dev
--   fastapi.tiangolo.com
-
-Benefits:
-
--   reduces friction
--   helps reviewers test quickly
--   improves demo experience
-
-Implementation:
-
-simple preset URL buttons.
-
-------------------------------------------------------------------------
-
-# 5. Output Copy Button
-
-Add a button to copy the generated llms.txt.
+-   a `Copy llms.txt` button appears next to the download button
+-   it copies the rendered preview contents from the result page
+-   the UI shows lightweight inline feedback after the copy attempt
 
 Example:
 
@@ -163,9 +123,16 @@ Benefits:
 -   improves usability
 -   makes the tool easier to use in practice
 
+Implementation notes:
+
+-   keep the feature entirely in the result-page view layer
+-   reuse the already-rendered preview instead of generating a second
+    copy source
+-   avoid new dependencies and use the browser clipboard API directly
+
 ------------------------------------------------------------------------
 
-# 6. Error Display Improvements
+# 4. Error Display Improvements
 
 Improve error messages when generation fails.
 
@@ -192,7 +159,7 @@ Benefits:
 
 ------------------------------------------------------------------------
 
-# 7. Loading State Improvements
+# 5. Loading State Improvements
 
 Show a loading indicator during generation.
 
