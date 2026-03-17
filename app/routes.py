@@ -2,17 +2,25 @@
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import MutableMapping
 from uuid import uuid4
 
-from starlette.responses import PlainTextResponse, RedirectResponse
+from starlette.responses import JSONResponse, PlainTextResponse, RedirectResponse
 
-from app.types import PipelineRunner
-from app.views import render_home_page, render_result_page
+from app.types import GenerationJobState, PipelineRunner
+from app.views import render_home_page, render_progress_page, render_result_page
 from services.pipeline import GenerationResult
 from utils.url_utils import normalize_url
 
 
-def register_routes(rt, *, pipeline: PipelineRunner, result_store: dict[str, GenerationResult]) -> None:
+def register_routes(
+    rt,
+    *,
+    pipeline: PipelineRunner,
+    progress_store: MutableMapping[str, GenerationJobState],
+    result_store: dict[str, GenerationResult],
+) -> None:
     """Register the minimal FastHTML routes for the llms.txt generator."""
 
     @rt("/")
@@ -38,27 +46,48 @@ def register_routes(rt, *, pipeline: PipelineRunner, result_store: dict[str, Gen
                 respect_robots_txt=should_respect_robots_txt,
             )
 
-        try:
-            result = await pipeline.run(
-                normalized_url,
+        job_id = uuid4().hex
+        progress_store[job_id] = GenerationJobState(
+            normalized_root_url=normalized_url,
+            message=f"Crawling {normalized_url}",
+            pages_queued=1,
+        )
+        asyncio.create_task(
+            _run_generation_job(
+                job_id,
+                pipeline=pipeline,
+                progress_store=progress_store,
+                result_store=result_store,
+                normalized_url=normalized_url,
                 force_generate=should_force_generate,
                 respect_robots_txt=should_respect_robots_txt,
             )
-        except Exception:
-            return render_home_page(
-                url_value=normalized_url,
-                error_message="Something went wrong while crawling that site. Please try again.",
-                force_generate=should_force_generate,
-                respect_robots_txt=should_respect_robots_txt,
-            )
+        )
+        return render_progress_page(
+            normalized_url=normalized_url,
+            progress_path=f"/progress/{job_id}",
+        )
 
-        result_id = uuid4().hex
-        result_store[result_id] = result
-        return render_result_page(result, download_path=f"/download/{result_id}")
+    @rt("/progress/{job_id}")
+    def progress(job_id: str):
+        job_state = progress_store.get(job_id)
+        if job_state is None:
+            return JSONResponse({"status": "failed", "error_message": "Progress state not found."}, status_code=404)
 
-    @rt("/download/{result_id}")
-    def download(result_id: str):
-        result = result_store.get(result_id)
+        result_path = f"/result/{job_id}" if job_state.status == "completed" else None
+        return JSONResponse(job_state.to_payload(result_path=result_path))
+
+    @rt("/result/{job_id}")
+    def result(job_id: str):
+        result = result_store.get(job_id)
+        if result is None:
+            return RedirectResponse(url="/", status_code=303)
+
+        return render_result_page(result, download_path=f"/download/{job_id}")
+
+    @rt("/download/{job_id}")
+    def download(job_id: str):
+        result = result_store.get(job_id)
         if result is None:
             return RedirectResponse(url="/", status_code=303)
 
@@ -67,3 +96,40 @@ def register_routes(rt, *, pipeline: PipelineRunner, result_store: dict[str, Gen
             media_type="text/plain; charset=utf-8",
             headers={"content-disposition": 'attachment; filename="llms.txt"'},
         )
+
+
+async def _run_generation_job(
+    job_id: str,
+    *,
+    pipeline: PipelineRunner,
+    progress_store: MutableMapping[str, GenerationJobState],
+    result_store: dict[str, GenerationResult],
+    normalized_url: str,
+    force_generate: bool,
+    respect_robots_txt: bool,
+) -> None:
+    job_state = progress_store[job_id]
+
+    def handle_progress(progress) -> None:
+        current_job_state = progress_store.get(job_id)
+        if current_job_state is None:
+            return
+
+        current_job_state.apply_crawl_progress(progress)
+
+    try:
+        result = await pipeline.run(
+            normalized_url,
+            force_generate=force_generate,
+            respect_robots_txt=respect_robots_txt,
+            progress_callback=handle_progress,
+        )
+    except Exception:
+        job_state.status = "failed"
+        job_state.error_message = "Something went wrong while crawling that site. Please try again."
+        job_state.message = "Generation failed."
+        return
+
+    result_store[job_id] = result
+    job_state.status = "completed"
+    job_state.message = "Generation complete."

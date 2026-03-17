@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import deque
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from time import perf_counter
 from typing import TypeAlias
@@ -18,7 +18,18 @@ from utils.robots import RobotsPolicy, load_robots_policy
 from utils.url_utils import is_html_like_url, is_same_domain, normalize_url, should_skip_url
 
 CrawledPage: TypeAlias = tuple[str, str, int]
+ProgressCallback: TypeAlias = Callable[["CrawlProgress"], None]
 logger = logging.getLogger(__name__)
+
+
+@dataclass(slots=True)
+class CrawlProgress:
+    """Progress snapshot emitted while crawling a site."""
+
+    root_url: str
+    depth: int
+    pages_visited: int
+    pages_queued: int
 
 
 @dataclass(slots=True)
@@ -47,6 +58,7 @@ async def crawl_site(
     *,
     config: CrawlerConfig | None = None,
     client: httpx.AsyncClient | None = None,
+    progress_callback: ProgressCallback | None = None,
 ) -> list[CrawledPage]:
     """Breadth-first crawl of HTML pages within the start URL's domain."""
 
@@ -78,6 +90,7 @@ async def crawl_site(
             crawler_config,
             active_client,
             robots_policy,
+            progress_callback=progress_callback,
         )
         elapsed_seconds = perf_counter() - crawl_started_at
         logger.info(
@@ -94,11 +107,23 @@ async def _crawl_with_client(
     config: CrawlerConfig,
     client: httpx.AsyncClient,
     robots_policy: RobotsPolicy,
+    *,
+    progress_callback: ProgressCallback | None,
 ) -> list[CrawledPage]:
     queue: deque[tuple[str, int]] = deque([(start_url, 0)])
     seen_urls: set[str] = {start_url}
     crawled_pages: list[CrawledPage] = []
     semaphore = asyncio.Semaphore(config.max_concurrent_requests)
+
+    _emit_progress(
+        progress_callback,
+        CrawlProgress(
+            root_url=start_url,
+            depth=0,
+            pages_visited=0,
+            pages_queued=len(queue),
+        ),
+    )
 
     while queue and len(crawled_pages) < config.max_pages:
         current_level = _pop_current_level(queue)
@@ -130,6 +155,16 @@ async def _crawl_with_client(
 
                 seen_urls.add(discovered_url)
                 queue.append((discovered_url, depth + 1))
+
+            _emit_progress(
+                progress_callback,
+                CrawlProgress(
+                    root_url=start_url,
+                    depth=depth,
+                    pages_visited=len(crawled_pages),
+                    pages_queued=len(queue),
+                ),
+            )
 
     return crawled_pages
 
@@ -248,3 +283,13 @@ def _should_enqueue_discovered_url(
 def _is_html_response(response: httpx.Response) -> bool:
     content_type = response.headers.get("content-type", "").lower()
     return "text/html" in content_type or "application/xhtml+xml" in content_type
+
+
+def _emit_progress(
+    progress_callback: ProgressCallback | None,
+    progress: CrawlProgress,
+) -> None:
+    if progress_callback is None:
+        return
+
+    progress_callback(progress)

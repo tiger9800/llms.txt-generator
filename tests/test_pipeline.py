@@ -218,7 +218,13 @@ async def test_generation_pipeline_can_force_generate_even_when_llms_txt_exists(
 async def test_generation_pipeline_can_override_robots_setting_in_crawl_config() -> None:
     captured_config: CrawlerConfig | None = None
 
-    async def stub_crawl_service(root_url: str, *, config: CrawlerConfig, client=None):
+    async def stub_crawl_service(
+        root_url: str,
+        *,
+        config: CrawlerConfig,
+        client=None,
+        progress_callback=None,
+    ):
         nonlocal captured_config
         captured_config = config
         return []

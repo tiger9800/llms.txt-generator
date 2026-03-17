@@ -12,7 +12,7 @@ from typing import Awaitable
 import httpx
 
 from models.page import Page
-from services.crawler import CrawledPage, CrawlerConfig, crawl_site
+from services.crawler import CrawlProgress, CrawledPage, CrawlerConfig, ProgressCallback, crawl_site
 from services.extractor import extract_pages
 from services.generator import generate_llms_txt
 from services.prioritizer import prioritize_pages
@@ -63,6 +63,7 @@ class GenerationPipeline:
         crawl_config: CrawlerConfig | None = None,
         force_generate: bool = False,
         respect_robots_txt: bool = True,
+        progress_callback: ProgressCallback | None = None,
     ) -> GenerationResult:
         """Run the full deterministic llms.txt generation pipeline."""
 
@@ -93,6 +94,7 @@ class GenerationPipeline:
             normalized_root_url,
             config=crawler_config,
             client=self._client,
+            progress_callback=progress_callback,
         )
         extracted_pages = self._extract_service(crawled_pages)
         selected_pages = self._prioritize_service(extracted_pages)

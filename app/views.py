@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fasthtml.common import Button, Div, Form, H1, H2, Input, Li, P, Pre, Strong, Titled, Ul
+from fasthtml.common import Button, Div, Form, H1, H2, Input, Li, P, Pre, Script, Strong, Titled, Ul
 
 from services.pipeline import GenerationResult
 
@@ -102,5 +102,92 @@ def render_result_page(result: GenerationResult, *, download_path: str):
                 style="margin-top: 1rem;",
             ),
             style="max-width: 56rem; margin: 2rem auto; padding: 0 1rem;",
+        ),
+    )
+
+
+def render_progress_page(
+    *,
+    normalized_url: str,
+    progress_path: str,
+) :
+    """Render a polling progress page while generation runs in the background."""
+
+    script = Script(
+        f"""
+const progressPath = {progress_path!r};
+const statusMessage = document.getElementById("status-message");
+const depthValue = document.getElementById("depth-value");
+const visitedValue = document.getElementById("visited-value");
+const queuedValue = document.getElementById("queued-value");
+const errorMessage = document.getElementById("error-message");
+const homeAction = document.getElementById("home-action");
+
+async function pollProgress() {{
+  try {{
+    const response = await fetch(progressPath, {{ cache: "no-store" }});
+    if (!response.ok) {{
+      throw new Error("Unable to load progress");
+    }}
+
+    const progress = await response.json();
+    statusMessage.textContent = progress.message;
+    depthValue.textContent = String(progress.depth);
+    visitedValue.textContent = String(progress.pages_visited);
+    queuedValue.textContent = String(progress.pages_queued);
+
+    if (progress.status === "completed" && progress.result_path) {{
+      window.location = progress.result_path;
+      return;
+    }}
+
+    if (progress.status === "failed") {{
+      errorMessage.textContent = progress.error_message || "Something went wrong while generating llms.txt.";
+      errorMessage.style.display = "block";
+      homeAction.style.display = "inline-block";
+      return;
+    }}
+  }} catch (error) {{
+    errorMessage.textContent = "We lost the progress update connection. Please try again.";
+    errorMessage.style.display = "block";
+    homeAction.style.display = "inline-block";
+    return;
+  }}
+
+  window.setTimeout(pollProgress, 500);
+}}
+
+window.addEventListener("load", () => {{
+  window.setTimeout(pollProgress, 100);
+}});
+"""
+    )
+
+    return Titled(
+        "Generating llms.txt",
+        Div(
+            H1("Generating llms.txt"),
+            P(
+                f"Crawling {normalized_url}",
+                id="status-message",
+                style="font-weight: 600;",
+            ),
+            Ul(
+                Li(Strong("Depth: "), Strong("0", id="depth-value")),
+                Li(Strong("Pages visited: "), Strong("0", id="visited-value")),
+                Li(Strong("Pages queued: "), Strong("0", id="queued-value")),
+            ),
+            P("This page updates automatically while the crawler runs."),
+            Div(
+                id="error-message",
+                style="display: none; color: #b02a37; margin-top: 1rem;",
+            ),
+            Div(
+                Button("Back home", type="button", onclick="window.location='/'"),
+                id="home-action",
+                style="display: none; margin-top: 1rem;",
+            ),
+            script,
+            style="max-width: 48rem; margin: 2rem auto; padding: 0 1rem;",
         ),
     )

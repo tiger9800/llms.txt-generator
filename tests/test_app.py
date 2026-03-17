@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
+import re
+import time
 
 from fasthtml.core import Client
 
 from app.main import create_app
 from models.page import Page
+from services.crawler import CrawlProgress
 from services.pipeline import GenerationResult
 
 
@@ -14,6 +18,7 @@ class StubPipeline:
     result: GenerationResult
     last_force_generate: bool = False
     last_respect_robots_txt: bool = True
+    emitted_progress: bool = False
 
     async def run(
         self,
@@ -22,9 +27,20 @@ class StubPipeline:
         crawl_config=None,
         force_generate: bool = False,
         respect_robots_txt: bool = True,
+        progress_callback=None,
     ):
         self.last_force_generate = force_generate
         self.last_respect_robots_txt = respect_robots_txt
+        if progress_callback is not None:
+            progress_callback(
+                CrawlProgress(
+                    root_url=root_url,
+                    depth=1,
+                    pages_visited=2,
+                    pages_queued=3,
+                )
+            )
+            self.emitted_progress = True
         return self.result
 
 
@@ -52,7 +68,7 @@ def test_home_route_renders_url_form() -> None:
     assert 'href="/static/logo.png"' in response.text
 
 
-def test_generate_route_renders_result_preview_and_download_link() -> None:
+def test_generate_route_renders_progress_page_and_result_preview() -> None:
     result = GenerationResult(
         normalized_root_url="https://example.com/",
         crawled_pages=[
@@ -79,16 +95,31 @@ def test_generate_route_renders_result_preview_and_download_link() -> None:
         ],
         llms_txt_markdown="# Example Platform\n\n## Documentation\n- [Getting Started](https://example.com/docs/start): Learn how to start building.",
     )
-    app = create_app(pipeline=StubPipeline(result=result))
+    stub_pipeline = StubPipeline(result=result)
+    app = create_app(pipeline=stub_pipeline)
     client = Client(app)
     response = client.post("/generate", data={"url": "https://example.com/"})  # type: ignore[attr-defined]
 
     assert response.status_code == 200
-    assert "llms.txt Preview" in response.text
-    assert "Crawled pages:" in response.text
-    assert "Selected pages:" in response.text
-    assert "Download llms.txt" in response.text
-    assert "Getting Started" in response.text
+    assert "Generating llms.txt" in response.text
+    assert "Pages visited:" in response.text
+    assert '/progress/' in response.text
+
+    job_id = _extract_job_id(response.text)
+    progress_payload = _wait_for_progress_completion(client, job_id)
+
+    assert progress_payload["status"] == "completed"
+    assert progress_payload["result_path"] == f"/result/{job_id}"
+    assert stub_pipeline.emitted_progress is True
+
+    result_response = client.get(f"/result/{job_id}")
+
+    assert result_response.status_code == 200
+    assert "llms.txt Preview" in result_response.text
+    assert "Crawled pages:" in result_response.text
+    assert "Selected pages:" in result_response.text
+    assert "Download llms.txt" in result_response.text
+    assert "Getting Started" in result_response.text
 
 
 def test_generate_route_can_disable_robots_txt_respect() -> None:
@@ -150,6 +181,26 @@ def test_download_route_redirects_when_result_is_missing() -> None:
     assert response.status_code == 303
 
 
+def test_progress_route_reports_failure_for_missing_job() -> None:
+    app = create_app(
+        pipeline=StubPipeline(
+            result=GenerationResult(
+                normalized_root_url="https://example.com/",
+                crawled_pages=[],
+                selected_pages=[],
+                llms_txt_markdown="# Website",
+            )
+        )
+    )
+    client = Client(app)
+
+    response = client.get("/progress/missing")
+    payload = json.loads(response.text)
+
+    assert response.status_code == 404
+    assert payload["status"] == "failed"
+
+
 def test_favicon_asset_is_served() -> None:
     app = create_app(
         pipeline=StubPipeline(
@@ -167,3 +218,20 @@ def test_favicon_asset_is_served() -> None:
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("image/png")
+
+
+def _extract_job_id(html: str) -> str:
+    job_match = re.search(r"/progress/([0-9a-f]+)", html)
+    assert job_match is not None
+    return job_match.group(1)
+
+
+def _wait_for_progress_completion(client: Client, job_id: str) -> dict[str, object]:
+    for _ in range(10):
+        response = client.get(f"/progress/{job_id}")
+        payload = json.loads(response.text)
+        if payload.get("status") == "completed":
+            return payload
+        time.sleep(0.01)
+
+    raise AssertionError("Generation job did not complete in time for the test.")
