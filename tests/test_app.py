@@ -107,8 +107,10 @@ def test_generate_route_renders_progress_page_and_result_preview() -> None:
 
     assert response.status_code == 200
     assert "Generating llms.txt" in response.text
+    assert "Working..." in response.text
     assert "Pages visited:" in response.text
     assert '/progress/' in response.text
+    assert "@keyframes spin" in response.text
 
     job_id = _extract_job_id(response.text)
     progress_payload = _wait_for_progress_completion(client, job_id)

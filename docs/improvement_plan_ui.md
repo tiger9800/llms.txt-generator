@@ -161,7 +161,19 @@ Benefits:
 
 # 5. Loading State Improvements
 
-Show a loading indicator during generation.
+Status: implemented.
+
+The generation progress page now includes a clearer loading state while
+the crawl and pipeline are running.
+
+Current UI:
+
+-   the progress page headline still shows `Generating llms.txt`
+-   a visible animated loading indicator is rendered immediately
+-   the page shows a `Working...` status cue before progress numbers
+    start changing
+-   the explanatory copy makes it clear that updates happen
+    automatically during generation
 
 Example:
 
@@ -171,6 +183,13 @@ Benefits:
 
 -   improves perceived responsiveness
 -   avoids confusion during long crawls
+
+Implementation notes:
+
+-   build on the existing progress page instead of adding a second
+    loading screen
+-   keep the implementation view-only with a tiny inline animation
+-   avoid new dependencies and preserve the current background-job flow
 
 ------------------------------------------------------------------------
 

@@ -183,6 +183,19 @@ window.addEventListener("load", () => {{
         "Generating llms.txt",
         Div(
             H1("Generating llms.txt"),
+            Div(
+                Div(
+                    aria_label="Loading",
+                    role="status",
+                    style=(
+                        "width: 1rem; height: 1rem; border: 2px solid #cbd5e1; "
+                        "border-top-color: #0f172a; border-radius: 999px; "
+                        "animation: spin 0.8s linear infinite;"
+                    ),
+                ),
+                Strong("Working..."),
+                style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;",
+            ),
             P(
                 f"Crawling {normalized_url}",
                 id="status-message",
@@ -193,7 +206,14 @@ window.addEventListener("load", () => {{
                 Li(Strong("Pages visited: "), Strong("0", id="visited-value")),
                 Li(Strong("Pages queued: "), Strong("0", id="queued-value")),
             ),
-            P("This page updates automatically while the crawler runs."),
+            P("This page updates automatically while generation is in progress."),
+            Script(
+                """
+const loadingStyle = document.createElement("style");
+loadingStyle.textContent = "@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }";
+document.head.appendChild(loadingStyle);
+"""
+            ),
             Div(
                 id="error-message",
                 style="display: none; color: #b02a37; margin-top: 1rem;",
