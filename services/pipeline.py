@@ -13,7 +13,7 @@ import httpx
 
 from models.page import Page
 from services.crawler import CrawlProgress, CrawledPage, CrawlerConfig, ProgressCallback, crawl_site
-from services.extractor import extract_pages
+from services.extractor import detect_interstitial_page, extract_pages
 from services.generator import generate_llms_txt
 from services.prioritizer import prioritize_pages
 from utils.http_utils import get_async_client
@@ -24,6 +24,10 @@ CrawlService = Callable[
     Awaitable[list[CrawledPage]],
 ]
 logger = logging.getLogger(__name__)
+
+
+class InterstitialPageError(RuntimeError):
+    """Raised when the root page appears to be an anti-bot or interstitial response."""
 
 
 @dataclass(slots=True)
@@ -107,6 +111,7 @@ class GenerationPipeline:
             client=self._client,
             progress_callback=progress_callback,
         )
+        _raise_if_root_page_is_interstitial(normalized_root_url, crawled_pages)
         crawl_summary = CrawlSummary(
             pages_crawled=len(crawled_pages),
             depth_reached=max((depth for _, _, depth in crawled_pages), default=0),
@@ -178,4 +183,29 @@ def _log_pipeline_completion(
         elapsed_seconds,
         len(result.crawled_pages),
         len(result.selected_pages),
+    )
+
+
+def _raise_if_root_page_is_interstitial(
+    normalized_root_url: str,
+    crawled_pages: list[CrawledPage],
+) -> None:
+    root_page = next(
+        (
+            (url, html)
+            for url, html, depth in crawled_pages
+            if depth == 0 and url == normalized_root_url
+        ),
+        None,
+    )
+    if root_page is None:
+        return
+
+    _, root_html = root_page
+    interstitial_reason = detect_interstitial_page(root_html)
+    if interstitial_reason is None:
+        return
+
+    raise InterstitialPageError(
+        "This site appears to be blocked by bot protection or a JavaScript-only interstitial page."
     )

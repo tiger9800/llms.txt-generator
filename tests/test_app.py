@@ -10,7 +10,7 @@ from fasthtml.core import Client
 from app.main import create_app
 from models.page import Page
 from services.crawler import CrawlProgress
-from services.pipeline import CrawlSummary, GenerationResult
+from services.pipeline import CrawlSummary, GenerationResult, InterstitialPageError
 
 
 @dataclass
@@ -215,6 +215,33 @@ def test_progress_route_reports_failure_for_missing_job() -> None:
     assert payload["status"] == "failed"
 
 
+def test_generate_route_shows_interstitial_detection_message() -> None:
+    @dataclass
+    class InterstitialPipeline:
+        async def run(
+            self,
+            root_url: str,
+            *,
+            crawl_config=None,
+            force_generate: bool = False,
+            respect_robots_txt: bool = True,
+            progress_callback=None,
+        ):
+            raise InterstitialPageError(
+                "This site appears to be blocked by bot protection or a JavaScript-only interstitial page."
+            )
+
+    app = create_app(pipeline=InterstitialPipeline())
+    client = Client(app)
+
+    response = client.post("/generate", data={"url": "https://example.com/"})  # type: ignore[attr-defined]
+    job_id = _extract_job_id(response.text)
+    failure_payload = _wait_for_failed_progress(client, job_id)
+
+    assert failure_payload["status"] == "failed"
+    assert "bot protection" in failure_payload["error_message"]
+
+
 def test_favicon_asset_is_served() -> None:
     app = create_app(
         pipeline=StubPipeline(
@@ -249,3 +276,14 @@ def _wait_for_progress_completion(client: Client, job_id: str) -> dict[str, obje
         time.sleep(0.01)
 
     raise AssertionError("Generation job did not complete in time for the test.")
+
+
+def _wait_for_failed_progress(client: Client, job_id: str) -> dict[str, object]:
+    for _ in range(10):
+        response = client.get(f"/progress/{job_id}")
+        payload = json.loads(response.text)
+        if payload.get("status") == "failed":
+            return payload
+        time.sleep(0.01)
+
+    raise AssertionError("Generation job did not fail in time for the test.")

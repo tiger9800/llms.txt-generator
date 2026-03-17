@@ -273,6 +273,8 @@ generated output against existing `llms.txt` files.
 
 ## 6. Anti-Bot and Interstitial Detection
 
+Status: implemented.
+
 Some sites return bot checks, JavaScript-only walls, or access-denied
 pages instead of real content.
 
@@ -297,6 +299,20 @@ output from them.
 -   focus first on the root page response
 -   avoid running the full pipeline on clearly blocked/interstitial pages
 -   add tests with representative blocked-page HTML samples
+
+### Current behavior
+
+-   inspect the fetched root page before extraction/generation continues
+-   match common anti-bot and interstitial phrases such as:
+    -   `verify that you're not a robot`
+    -   `enable javascript`
+    -   `access denied`
+    -   `captcha`
+    -   `checking your browser`
+-   stop generation early when the root page matches one of those
+    patterns
+-   surface a specific user-facing failure message instead of generating
+    misleading output from the blocked page
 
 ### Benefits
 

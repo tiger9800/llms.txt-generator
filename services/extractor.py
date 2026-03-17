@@ -16,6 +16,14 @@ from utils.url_utils import get_url_path, normalize_url
 DEFAULT_DESCRIPTION = "No description available."
 FALLBACK_DESCRIPTION_LENGTH = 160
 CrawledPageInput: TypeAlias = tuple[str, str, int]
+INTERSTITIAL_PATTERNS: tuple[str, ...] = (
+    "verify that you're not a robot",
+    "enable javascript",
+    "access denied",
+    "captcha",
+    "checking your browser",
+    "javascript is disabled",
+)
 
 
 def extract_page(url: str, html: str, depth: int) -> Page:
@@ -48,6 +56,21 @@ def extract_pages(crawled_pages: Iterable[CrawledPageInput]) -> list[Page]:
         extract_page(url=url, html=html, depth=depth)
         for url, html, depth in crawled_pages
     ]
+
+
+def detect_interstitial_page(html: str) -> str | None:
+    """Return a short reason when HTML appears to be an anti-bot or interstitial page."""
+
+    soup = BeautifulSoup(html, "html.parser")
+    page_text = _normalize_block_text(soup.get_text(" ", strip=True)).casefold()
+    if not page_text:
+        return None
+
+    for pattern in INTERSTITIAL_PATTERNS:
+        if pattern in page_text:
+            return pattern
+
+    return None
 
 
 def _extract_title(soup: BeautifulSoup, url: str) -> str:

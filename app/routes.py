@@ -10,7 +10,7 @@ from starlette.responses import JSONResponse, PlainTextResponse, RedirectRespons
 
 from app.types import GenerationJobState, PipelineRunner
 from app.views import render_home_page, render_progress_page, render_result_page
-from services.pipeline import GenerationResult
+from services.pipeline import GenerationResult, InterstitialPageError
 from utils.url_utils import normalize_url
 
 
@@ -124,6 +124,11 @@ async def _run_generation_job(
             respect_robots_txt=respect_robots_txt,
             progress_callback=handle_progress,
         )
+    except InterstitialPageError as error:
+        job_state.status = "failed"
+        job_state.error_message = str(error)
+        job_state.message = "Generation failed."
+        return
     except Exception:
         job_state.status = "failed"
         job_state.error_message = "Something went wrong while crawling that site. Please try again."

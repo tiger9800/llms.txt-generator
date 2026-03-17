@@ -6,7 +6,7 @@ import httpx
 import pytest
 
 from services.crawler import CrawlerConfig
-from services.pipeline import GenerationPipeline
+from services.pipeline import GenerationPipeline, InterstitialPageError
 
 
 @pytest.mark.anyio
@@ -109,6 +109,37 @@ async def test_generation_pipeline_returns_empty_output_when_crawl_finds_no_page
     assert result.crawl_summary is not None
     assert result.crawl_summary.pages_crawled == 0
     assert result.crawl_summary.depth_reached == 0
+
+
+@pytest.mark.anyio
+async def test_generation_pipeline_raises_for_interstitial_root_page() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url).rstrip("/") == "https://example.com":
+            return httpx.Response(
+                status_code=200,
+                headers={"content-type": "text/html; charset=utf-8"},
+                text="""
+                    <html>
+                      <head><title>Index.html</title></head>
+                      <body>
+                        <p>JavaScript is disabled. We need to verify that you're not a robot.</p>
+                      </body>
+                    </html>
+                """,
+                request=request,
+            )
+
+        return httpx.Response(status_code=404, request=request)
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        pipeline = GenerationPipeline(client=client)
+        with pytest.raises(InterstitialPageError):
+            await pipeline.run(
+                "https://example.com/",
+                crawl_config=CrawlerConfig(max_depth=1, max_pages=5),
+                force_generate=True,
+            )
 
 
 @pytest.mark.anyio

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from services.extractor import DEFAULT_DESCRIPTION, extract_page, extract_pages
+from services.extractor import DEFAULT_DESCRIPTION, detect_interstitial_page, extract_page, extract_pages
 
 
 def test_extract_page_reads_primary_metadata_fields() -> None:
@@ -123,3 +123,29 @@ def test_extract_page_fallback_description_prefers_paragraph_content_over_repeat
     assert page.description == (
         "FastHTML explains the design tradeoffs behind the framework and how the pieces fit together."
     )
+
+
+def test_detect_interstitial_page_recognizes_common_bot_protection_text() -> None:
+    html = """
+    <html>
+      <body>
+        <p>JavaScript is disabled. In order to continue, we need to verify that you're not a robot.</p>
+      </body>
+    </html>
+    """
+
+    assert detect_interstitial_page(html) == "verify that you're not a robot"
+
+
+def test_detect_interstitial_page_returns_none_for_normal_content() -> None:
+    html = """
+    <html>
+      <body>
+        <main>
+          <p>Build integrations faster with our API guides and examples.</p>
+        </main>
+      </body>
+    </html>
+    """
+
+    assert detect_interstitial_page(html) is None

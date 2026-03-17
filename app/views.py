@@ -171,6 +171,7 @@ def render_progress_page(
             Div(
                 Div(
                     aria_label="Loading",
+                    id="loading-indicator",
                     role="status",
                     style=(
                         "width: 1rem; height: 1rem; border: 2px solid #cbd5e1; "
@@ -178,7 +179,8 @@ def render_progress_page(
                         "animation: spin 0.8s linear infinite;"
                     ),
                 ),
-                Strong("Working..."),
+                Strong("Working...", id="loading-label"),
+                id="loading-state",
                 style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;",
             ),
             P(
@@ -287,6 +289,19 @@ const visitedValue = document.getElementById("visited-value");
 const queuedValue = document.getElementById("queued-value");
 const errorMessage = document.getElementById("error-message");
 const homeAction = document.getElementById("home-action");
+const loadingState = document.getElementById("loading-state");
+const loadingLabel = document.getElementById("loading-label");
+
+function setLoadingState(isRunning) {{
+  if (loadingState === null) {{
+    return;
+  }}
+
+  loadingState.style.display = isRunning ? "flex" : "none";
+  if (!isRunning && loadingLabel !== null) {{
+    loadingLabel.textContent = "";
+  }}
+}}
 
 async function pollProgress() {{
   try {{
@@ -302,17 +317,20 @@ async function pollProgress() {{
     queuedValue.textContent = String(progress.pages_queued);
 
     if (progress.status === "completed" && progress.result_path) {{
+      setLoadingState(false);
       window.location = progress.result_path;
       return;
     }}
 
     if (progress.status === "failed") {{
+      setLoadingState(false);
       errorMessage.textContent = progress.error_message || "Something went wrong while generating llms.txt.";
       errorMessage.style.display = "block";
       homeAction.style.display = "inline-block";
       return;
     }}
   }} catch (error) {{
+    setLoadingState(false);
     errorMessage.textContent = "We lost the progress update connection. Please try again.";
     errorMessage.style.display = "block";
     homeAction.style.display = "inline-block";
