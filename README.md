@@ -86,26 +86,108 @@ utils/      # reusable helpers
 tests/      # automated tests and evaluation harness
 ```
 
+## Deployment
+
+The application is a lightweight Python web service with no required
+environment variables. It can be deployed on any platform that supports
+running a Python process.
+
+### Railway (Current Deployment)
+
+This project is currently deployed on Railway, which provides a simple
+and fast way to deploy Python applications with minimal configuration.
+
+**Build command:** `pip install -r requirements.txt`
+
+**Start command:** `python -m app.main`
+
+### Why Railway?
+
+Railway was chosen for this project because:
+
+- Zero-config deployment
+- Fast iteration and redeploys
+- Good defaults for networking and process management
+- Ideal for demos and rapid prototyping
+
+---
+
+## Deploy It Yourself
+
+You can deploy your own instance of this app with one click:
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new)
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
+
+### Notes
+
+After clicking, connect your GitHub repo and use:
+
+Build command: `pip install -r requirements.txt`  
+Start command: `python -m app.main`
+
+---
+
+## Alternative Deployment Options
+
+### Fly.io
+
+- Global deployment
+- Requires Docker
+
+### Render
+
+- Simple setup
+- Free tier available
+
+### Docker + Cloud (AWS / GCP / Azure)
+
+- Full control and scalability
+- More setup required
+
+---
+
 ## Local development
 
-Install dependencies and run the app from the repository root:
+### 1. Create a virtual environment
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv venv
+source venv/bin/activate   # macOS / Linux
+venv\Scripts\activate    # Windows
+```
+
+### 2. Install dependencies
+
+```bash
 pip install -r requirements.txt
+```
+
+### 3. Run the application
+
+```bash
 python -m app.main
 ```
 
-Then open `http://localhost:5001`.
+### 4. Open in browser
 
-## Deployment
+```text
+http://localhost:5001
+```
 
-The current hosted app is available at:
+---
 
-- https://llmstxt-generator-production-571b.up.railway.app/
+## Summary
 
-The repository does not currently include deployment configuration files such as a `Dockerfile`, `railway.json`, or `Procfile`, so deployment-specific setup is external to the repo at the moment.
+Railway was selected to optimize for:
+
+- speed of development
+- simplicity of deployment
+- ease of demonstration
+
+The architecture remains platform-agnostic and can be migrated to other
+providers as needed.
 
 ## Testing
 
