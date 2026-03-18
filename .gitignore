@@ -20,3 +20,6 @@ htmlcov/
 
 # FastHTML session key
 .sesskey
+
+# Local notes
+docs/faq.md
