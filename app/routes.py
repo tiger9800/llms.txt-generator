@@ -38,7 +38,6 @@ def register_routes(
         max_depth: str = str(CrawlerConfig().max_depth),
         max_pages: str = str(CrawlerConfig().max_pages),
         request_timeout: str = f"{CrawlerConfig().timeout:.1f}",
-        max_concurrency: str = str(CrawlerConfig().max_concurrent_requests),
     ):
         should_force_generate = force_generate is not None
         should_respect_robots_txt = respect_robots_txt is not None
@@ -60,7 +59,6 @@ def register_routes(
                 max_depth=max_depth,
                 max_pages=max_pages,
                 request_timeout=request_timeout,
-                max_concurrency=max_concurrency,
                 use_sitemap=should_use_sitemap,
             )
         except ValueError as error:
@@ -181,7 +179,6 @@ def _parse_crawl_config(
     max_depth: str,
     max_pages: str,
     request_timeout: str,
-    max_concurrency: str,
     use_sitemap: bool,
 ) -> CrawlerConfig:
     try:
@@ -189,7 +186,6 @@ def _parse_crawl_config(
             max_depth=int(max_depth),
             max_pages=int(max_pages),
             timeout=float(request_timeout),
-            max_concurrent_requests=int(max_concurrency),
             use_sitemap=use_sitemap,
         )
     except ValueError as error:

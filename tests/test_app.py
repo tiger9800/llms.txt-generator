@@ -75,7 +75,7 @@ def test_home_route_renders_url_form() -> None:
     assert 'name="max_depth"' in response.text
     assert 'name="max_pages"' in response.text
     assert 'name="request_timeout"' in response.text
-    assert 'name="max_concurrency"' in response.text
+    assert 'name="max_concurrency"' not in response.text
     assert "Generate an llms.txt file for any website" in response.text
     assert 'rel="icon"' in response.text
     assert 'href="/static/logo.png"' in response.text
@@ -179,7 +179,6 @@ def test_generate_route_can_disable_robots_txt_respect() -> None:
             "max_depth": "3",
             "max_pages": "25",
             "request_timeout": "12.5",
-            "max_concurrency": "4",
         },
     )  # type: ignore[attr-defined]
 
@@ -191,7 +190,6 @@ def test_generate_route_can_disable_robots_txt_respect() -> None:
         max_depth=3,
         max_pages=25,
         timeout=12.5,
-        max_concurrent_requests=4,
         use_sitemap=False,
     )
 
@@ -238,7 +236,6 @@ def test_generate_route_shows_friendly_error_for_invalid_advanced_crawl_settings
             "max_depth": "9",
             "max_pages": "50",
             "request_timeout": "10.0",
-            "max_concurrency": "5",
             "respect_robots_txt": "1",
         },
     )  # type: ignore[attr-defined]

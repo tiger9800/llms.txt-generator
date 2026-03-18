@@ -6,11 +6,9 @@ from fasthtml.common import Button, Details, Div, Form, Input, P, Strong, Summar
 
 from services.crawler import (
     CrawlerConfig,
-    MAX_MAX_CONCURRENT_REQUESTS,
     MAX_MAX_DEPTH,
     MAX_MAX_PAGES,
     MAX_TIMEOUT,
-    MIN_MAX_CONCURRENT_REQUESTS,
     MIN_MAX_DEPTH,
     MIN_MAX_PAGES,
     MIN_TIMEOUT,
@@ -117,7 +115,7 @@ def _render_checkbox(
 def _render_advanced_crawl_options(crawl_config: CrawlerConfig) -> Details:
     return Details(
         Summary("Advanced crawl options", cls="advanced-summary"),
-        P("These settings let you tune crawl depth, size, timeout, and concurrency.", cls="advanced-copy"),
+        P("These settings let you tune crawl depth, size, and timeout.", cls="advanced-copy"),
         _render_numeric_input(
             name="max_depth",
             label="Max depth",
@@ -144,15 +142,6 @@ def _render_advanced_crawl_options(crawl_config: CrawlerConfig) -> Details:
             max_value=f"{MAX_TIMEOUT:.1f}",
             step="0.5",
             help_text=f"Allowed range: {MIN_TIMEOUT:.1f} to {MAX_TIMEOUT:.1f} seconds.",
-        ),
-        _render_numeric_input(
-            name="max_concurrency",
-            label="Max concurrency",
-            value=str(crawl_config.max_concurrent_requests),
-            min_value=str(MIN_MAX_CONCURRENT_REQUESTS),
-            max_value=str(MAX_MAX_CONCURRENT_REQUESTS),
-            step="1",
-            help_text=f"Allowed range: {MIN_MAX_CONCURRENT_REQUESTS} to {MAX_MAX_CONCURRENT_REQUESTS}.",
         ),
         cls="advanced-panel",
     )
