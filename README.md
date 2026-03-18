@@ -8,6 +8,23 @@ Generate a standards-aligned `llms.txt` file for a public website by crawling, e
 
 - Deployment: https://llmstxt-generator-production-571b.up.railway.app/
 
+## Screenshots
+
+**Home page**  
+Enter a public website URL, choose crawl-safety defaults, and optionally expand advanced crawl settings.
+
+![Home page](docs/screenshots/Screenshot%202026-03-18%20at%205.00.39%E2%80%AFPM.png)
+
+**Existing llms.txt result**  
+When a site already exposes an `llms.txt`, the app surfaces it directly and lets the user copy or download it.
+
+![Existing llms.txt result](docs/screenshots/Screenshot%202026-03-18%20at%205.00.58%E2%80%AFPM.png)
+
+**Generated result**  
+For sites without an existing file, the app shows crawl statistics, selected-page counts, and the generated Markdown output.
+
+![Generated result](docs/screenshots/Screenshot%202026-03-18%20at%205.01.32%E2%80%AFPM.png)
+
 ## Features
 
 - FastHTML web app with a form, live crawl progress, crawl summary, result preview, copy action, and one-click download.
