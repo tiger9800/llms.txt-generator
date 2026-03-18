@@ -77,6 +77,7 @@ class GenerationPipeline:
         crawl_config: CrawlerConfig | None = None,
         force_generate: bool = False,
         respect_robots_txt: bool = True,
+        use_sitemap: bool = True,
         progress_callback: ProgressCallback | None = None,
     ) -> GenerationResult:
         """Run the full deterministic llms.txt generation pipeline."""
@@ -100,9 +101,9 @@ class GenerationPipeline:
             return result
 
         crawler_config = (
-            CrawlerConfig(respect_robots_txt=respect_robots_txt)
+            CrawlerConfig(respect_robots_txt=respect_robots_txt, use_sitemap=use_sitemap)
             if crawl_config is None
-            else replace(crawl_config, respect_robots_txt=respect_robots_txt)
+            else replace(crawl_config, respect_robots_txt=respect_robots_txt, use_sitemap=use_sitemap)
         )
         crawl_started_at = perf_counter()
         crawled_pages = await self._crawl_service(

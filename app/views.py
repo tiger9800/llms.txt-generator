@@ -24,6 +24,7 @@ def render_home_page(
     error_message: str | None = None,
     force_generate: bool = False,
     respect_robots_txt: bool = True,
+    use_sitemap: bool = True,
     crawl_config: CrawlerConfig | None = None,
 ):
     """Render the home page with the generation form and optional error state."""
@@ -37,7 +38,8 @@ def render_home_page(
                 url_value=url_value,
                 force_generate=force_generate,
                 respect_robots_txt=respect_robots_txt,
-                crawl_config=crawl_config or CrawlerConfig(),
+                use_sitemap=use_sitemap,
+                crawl_config=crawl_config or CrawlerConfig(use_sitemap=use_sitemap),
             ),
             style="max-width: 48rem; margin: 2rem auto; padding: 0 1rem;",
         ),
@@ -67,6 +69,7 @@ def _render_home_form(
     url_value: str,
     force_generate: bool,
     respect_robots_txt: bool,
+    use_sitemap: bool,
     crawl_config: CrawlerConfig,
 ) -> Form:
     return Form(
@@ -88,6 +91,12 @@ def _render_home_form(
             name="respect_robots_txt",
             label="Respect robots.txt",
             checked=respect_robots_txt,
+            margin_top="0.75rem",
+        ),
+        _render_checkbox(
+            name="use_sitemap",
+            label="Use sitemap.xml when available",
+            checked=use_sitemap,
             margin_top="0.75rem",
         ),
         _render_advanced_crawl_options(crawl_config),

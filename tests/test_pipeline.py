@@ -285,6 +285,34 @@ async def test_generation_pipeline_can_override_robots_setting_in_crawl_config()
 
 
 @pytest.mark.anyio
+async def test_generation_pipeline_can_override_sitemap_setting_in_crawl_config() -> None:
+    captured_config: CrawlerConfig | None = None
+
+    async def stub_crawl_service(
+        root_url: str,
+        *,
+        config: CrawlerConfig,
+        client=None,
+        progress_callback=None,
+    ):
+        nonlocal captured_config
+        captured_config = config
+        return []
+
+    pipeline = GenerationPipeline(crawl_service=stub_crawl_service)
+    await pipeline.run(
+        "https://example.com/",
+        crawl_config=CrawlerConfig(max_depth=3, max_pages=25, use_sitemap=True),
+        use_sitemap=False,
+    )
+
+    assert captured_config is not None
+    assert captured_config.max_depth == 3
+    assert captured_config.max_pages == 25
+    assert captured_config.use_sitemap is False
+
+
+@pytest.mark.anyio
 async def test_generation_pipeline_logs_existing_llms_txt_usage(
     caplog: pytest.LogCaptureFixture,
 ) -> None:

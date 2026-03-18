@@ -59,6 +59,7 @@ class PipelineRunner(Protocol):
         crawl_config=None,
         force_generate: bool = False,
         respect_robots_txt: bool = True,
+        use_sitemap: bool = True,
         progress_callback=None,
     ) -> GenerationResult:
         """Execute the generation pipeline for the provided URL."""

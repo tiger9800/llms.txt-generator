@@ -34,6 +34,7 @@ def register_routes(
         url: str,
         force_generate: str | None = None,
         respect_robots_txt: str | None = None,
+        use_sitemap: str | None = None,
         max_depth: str = str(CrawlerConfig().max_depth),
         max_pages: str = str(CrawlerConfig().max_pages),
         request_timeout: str = f"{CrawlerConfig().timeout:.1f}",
@@ -41,6 +42,7 @@ def register_routes(
     ):
         should_force_generate = force_generate is not None
         should_respect_robots_txt = respect_robots_txt is not None
+        should_use_sitemap = use_sitemap is not None
 
         try:
             normalized_url = normalize_url(url)
@@ -50,7 +52,7 @@ def register_routes(
                 error_message="Please enter a valid absolute http(s) URL.",
                 force_generate=should_force_generate,
                 respect_robots_txt=should_respect_robots_txt,
-                crawl_config=CrawlerConfig(),
+                crawl_config=CrawlerConfig(use_sitemap=should_use_sitemap),
             )
 
         try:
@@ -59,6 +61,7 @@ def register_routes(
                 max_pages=max_pages,
                 request_timeout=request_timeout,
                 max_concurrency=max_concurrency,
+                use_sitemap=should_use_sitemap,
             )
         except ValueError as error:
             return render_home_page(
@@ -66,7 +69,7 @@ def register_routes(
                 error_message=str(error),
                 force_generate=should_force_generate,
                 respect_robots_txt=should_respect_robots_txt,
-                crawl_config=CrawlerConfig(),
+                crawl_config=CrawlerConfig(use_sitemap=should_use_sitemap),
             )
 
         job_id = uuid4().hex
@@ -85,6 +88,7 @@ def register_routes(
                 crawl_config=crawl_config,
                 force_generate=should_force_generate,
                 respect_robots_txt=should_respect_robots_txt,
+                use_sitemap=should_use_sitemap,
             )
         )
         return render_progress_page(
@@ -136,6 +140,7 @@ async def _run_generation_job(
     crawl_config: CrawlerConfig,
     force_generate: bool,
     respect_robots_txt: bool,
+    use_sitemap: bool,
 ) -> None:
     job_state = progress_store[job_id]
 
@@ -152,6 +157,7 @@ async def _run_generation_job(
             crawl_config=crawl_config,
             force_generate=force_generate,
             respect_robots_txt=respect_robots_txt,
+            use_sitemap=use_sitemap,
             progress_callback=handle_progress,
         )
     except InterstitialPageError as error:
@@ -176,6 +182,7 @@ def _parse_crawl_config(
     max_pages: str,
     request_timeout: str,
     max_concurrency: str,
+    use_sitemap: bool,
 ) -> CrawlerConfig:
     try:
         return CrawlerConfig(
@@ -183,6 +190,7 @@ def _parse_crawl_config(
             max_pages=int(max_pages),
             timeout=float(request_timeout),
             max_concurrent_requests=int(max_concurrency),
+            use_sitemap=use_sitemap,
         )
     except ValueError as error:
         raise ValueError(f"Invalid advanced crawl options: {error}") from error

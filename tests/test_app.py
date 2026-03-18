@@ -19,6 +19,7 @@ class StubPipeline:
     result: GenerationResult
     last_force_generate: bool = False
     last_respect_robots_txt: bool = True
+    last_use_sitemap: bool = True
     last_crawl_config: CrawlerConfig | None = None
     emitted_progress: bool = False
 
@@ -29,10 +30,12 @@ class StubPipeline:
         crawl_config=None,
         force_generate: bool = False,
         respect_robots_txt: bool = True,
+        use_sitemap: bool = True,
         progress_callback=None,
     ):
         self.last_force_generate = force_generate
         self.last_respect_robots_txt = respect_robots_txt
+        self.last_use_sitemap = use_sitemap
         self.last_crawl_config = crawl_config
         if progress_callback is not None:
             progress_callback(
@@ -67,6 +70,7 @@ def test_home_route_renders_url_form() -> None:
     assert 'method="post"' in response.text
     assert 'name="url"' in response.text
     assert 'name="respect_robots_txt"' in response.text
+    assert 'name="use_sitemap"' in response.text
     assert "Advanced crawl options" in response.text
     assert 'name="max_depth"' in response.text
     assert 'name="max_pages"' in response.text
@@ -111,7 +115,14 @@ def test_generate_route_renders_progress_page_and_result_preview() -> None:
     stub_pipeline = StubPipeline(result=result)
     app = create_app(pipeline=stub_pipeline)
     client = Client(app)
-    response = client.post("/generate", data={"url": "https://example.com/"})  # type: ignore[attr-defined]
+    response = client.post(
+        "/generate",
+        data={
+            "url": "https://example.com/",
+            "respect_robots_txt": "1",
+            "use_sitemap": "1",
+        },
+    )  # type: ignore[attr-defined]
 
     assert response.status_code == 200
     assert "Generating llms.txt" in response.text
@@ -127,6 +138,7 @@ def test_generate_route_renders_progress_page_and_result_preview() -> None:
     assert progress_payload["result_path"] == f"/result/{job_id}"
     assert stub_pipeline.emitted_progress is True
     assert stub_pipeline.last_crawl_config == CrawlerConfig()
+    assert stub_pipeline.last_use_sitemap is True
 
     result_response = client.get(f"/result/{job_id}")
 
@@ -173,11 +185,13 @@ def test_generate_route_can_disable_robots_txt_respect() -> None:
     assert response.status_code == 200
     assert stub_pipeline.last_force_generate is False
     assert stub_pipeline.last_respect_robots_txt is False
+    assert stub_pipeline.last_use_sitemap is False
     assert stub_pipeline.last_crawl_config == CrawlerConfig(
         max_depth=3,
         max_pages=25,
         timeout=12.5,
         max_concurrent_requests=4,
+        use_sitemap=False,
     )
 
 
@@ -305,6 +319,7 @@ def test_generate_route_shows_interstitial_detection_message() -> None:
             crawl_config=None,
             force_generate: bool = False,
             respect_robots_txt: bool = True,
+            use_sitemap: bool = True,
             progress_callback=None,
         ):
             raise InterstitialPageError(

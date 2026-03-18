@@ -50,6 +50,7 @@ class CrawlerConfig:
     max_pages: int = 50
     max_concurrent_requests: int = 5
     respect_robots_txt: bool = True
+    use_sitemap: bool = True
     timeout: float = 10.0
 
     def __post_init__(self) -> None:
@@ -97,7 +98,11 @@ async def crawl_site(
         if robots_policy is None:
             return []
 
-        sitemap_seed_urls = await load_sitemap_urls(normalized_start_url, active_client)
+        sitemap_seed_urls = (
+            await load_sitemap_urls(normalized_start_url, active_client)
+            if crawler_config.use_sitemap
+            else []
+        )
         crawled_pages = await _crawl_with_client(
             normalized_start_url,
             crawler_config,

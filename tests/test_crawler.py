@@ -591,3 +591,40 @@ async def test_crawl_site_canonicalizes_www_aliases_to_root_host() -> None:
         "https://example.com/",
         "https://example.com/about",
     ]
+
+
+@pytest.mark.anyio
+async def test_crawl_site_can_disable_sitemap_seeding() -> None:
+    pages = {
+        "https://example.com/sitemap.xml": """
+            <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+              <url><loc>https://example.com/docs</loc></url>
+            </urlset>
+        """,
+        "https://example.com": "<html><body><p>Home</p></body></html>",
+        "https://example.com/docs": "<html><body><p>Docs</p></body></html>",
+    }
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        request_url = str(request.url).rstrip("/") or str(request.url)
+        content = pages.get(request_url)
+        if content is None:
+            return httpx.Response(status_code=404, request=request)
+
+        content_type = "application/xml" if request_url.endswith(".xml") else "text/html"
+        return httpx.Response(
+            status_code=200,
+            headers={"content-type": content_type},
+            text=content,
+            request=request,
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        crawled_pages = await crawl_site(
+            "https://example.com/",
+            config=CrawlerConfig(max_depth=1, max_pages=10, use_sitemap=False),
+            client=client,
+        )
+
+    assert [page[0] for page in crawled_pages] == ["https://example.com/"]
