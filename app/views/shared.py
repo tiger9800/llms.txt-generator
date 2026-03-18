@@ -46,8 +46,16 @@ def base_styles() -> str:
 
 * { box-sizing: border-box; }
 
+html {
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top left, rgba(15, 92, 120, 0.12), transparent 32rem),
+    linear-gradient(180deg, var(--bg) 0%, #f8f5ee 48%, #f3efe7 100%);
+}
+
 body {
   margin: 0;
+  min-height: 100vh;
   color: var(--text);
   background:
     radial-gradient(circle at top left, rgba(15, 92, 120, 0.12), transparent 32rem),
@@ -79,6 +87,7 @@ p, li {
 .page-shell {
   max-width: var(--page-max-width);
   margin: 0 auto;
+  min-height: 100vh;
   padding: 2.5rem 1rem 4rem;
 }
 
