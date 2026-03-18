@@ -15,6 +15,7 @@ from utils.url_utils import get_url_path, normalize_url
 
 DEFAULT_DESCRIPTION = "No description available."
 FALLBACK_DESCRIPTION_LENGTH = 160
+MAX_DESCRIPTION_LENGTH = 220
 CrawledPageInput: TypeAlias = tuple[str, str, int]
 INTERSTITIAL_PATTERNS: tuple[str, ...] = (
     "verify that you're not a robot",
@@ -38,6 +39,8 @@ def extract_page(url: str, html: str, depth: int) -> Page:
 
     if not description:
         description = _build_fallback_description(soup, html)
+    else:
+        description = _normalize_description(description, max_length=MAX_DESCRIPTION_LENGTH)
 
     return Page(
         url=normalized_url,
@@ -89,7 +92,7 @@ def _extract_description(soup: BeautifulSoup) -> str | None:
     if isinstance(description_tag, Tag):
         description = description_tag.get("content")
         if isinstance(description, str):
-            normalized_description = description.strip()
+            normalized_description = _normalize_block_text(description)
             if normalized_description:
                 return normalized_description
 
@@ -131,12 +134,40 @@ def _build_fallback_description(soup: BeautifulSoup, raw_html: str) -> str:
     if not summary:
         return DEFAULT_DESCRIPTION
 
-    if len(summary) <= FALLBACK_DESCRIPTION_LENGTH:
-        return summary
+    return _normalize_description(summary, max_length=FALLBACK_DESCRIPTION_LENGTH)
 
-    truncated_summary = summary[:FALLBACK_DESCRIPTION_LENGTH].rstrip()
-    truncated_summary = truncated_summary.rsplit(" ", 1)[0].rstrip() or truncated_summary
-    return f"{truncated_summary}..."
+
+def _normalize_description(description: str, *, max_length: int) -> str:
+    normalized_description = _normalize_block_text(description)
+    if len(normalized_description) <= max_length:
+        return normalized_description
+
+    sentence_truncated_description = _truncate_at_sentence_boundary(normalized_description, max_length=max_length)
+    if sentence_truncated_description is not None:
+        return sentence_truncated_description
+
+    return _truncate_at_word_boundary(normalized_description, max_length=max_length)
+
+
+def _truncate_at_sentence_boundary(description: str, *, max_length: int) -> str | None:
+    sentence_end_matches = list(re.finditer(r"[.!?](?:\s|$)", description))
+    if not sentence_end_matches:
+        return None
+
+    sentence_end_positions = [match.end() for match in sentence_end_matches if match.end() <= max_length]
+    if not sentence_end_positions:
+        return None
+
+    return description[: sentence_end_positions[-1]].rstrip()
+
+
+def _truncate_at_word_boundary(description: str, *, max_length: int) -> str:
+    truncated_description = description[:max_length].rstrip()
+    if " " in truncated_description:
+        truncated_description = truncated_description.rsplit(" ", 1)[0].rstrip() or truncated_description
+
+    truncated_description = truncated_description.rstrip(",:;/-")
+    return f"{truncated_description}..."
 
 
 def _matches_name(value: object, expected: str) -> bool:

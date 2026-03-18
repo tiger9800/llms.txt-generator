@@ -66,6 +66,44 @@ def test_extract_page_handles_malformed_html_and_invalid_canonical_url() -> None
     assert page.canonical_url == "https://example.com/broken-page"
 
 
+def test_extract_page_truncates_long_meta_description_at_sentence_boundary() -> None:
+    html = """
+    <html>
+      <head>
+        <title>Long Description</title>
+        <meta
+          name="description"
+          content="This guide explains how to configure hosted agents safely in production. It also covers verification loops, tool persistence, structured outputs, migration patterns, observability, rollout strategies, and failure handling for large production deployments across teams."
+        >
+      </head>
+    </html>
+    """
+
+    page = extract_page("https://example.com/docs/long-description", html, 1)
+
+    assert page.description == "This guide explains how to configure hosted agents safely in production."
+
+
+def test_extract_page_truncates_long_meta_description_at_word_boundary_when_needed() -> None:
+    html = """
+    <html>
+      <head>
+        <title>Long Description</title>
+        <meta
+          name="description"
+          content="Learn how to configure hosted agents with reusable skills, careful planning, durable tool setup, approval-safe workflows, thoughtful retries, clear guardrails, and production-minded observability for complex developer operations without losing momentum across teams and environments"
+        >
+      </head>
+    </html>
+    """
+
+    page = extract_page("https://example.com/docs/word-boundary", html, 1)
+
+    assert page.description.endswith("...")
+    assert len(page.description) <= 220
+    assert "environments" not in page.description
+
+
 def test_extract_page_returns_default_description_when_no_text_is_available() -> None:
     html = "<html><head></head><body><script>ignored()</script></body></html>"
 

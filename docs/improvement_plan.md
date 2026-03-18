@@ -329,7 +329,40 @@ for the initial core system.
 
 ------------------------------------------------------------------------
 
-## 7. Crawl Configuration
+## 7. Description Cleanup
+
+Status: implemented.
+
+Some pages expose descriptions that are technically present but too long
+to read cleanly in generated output.
+
+### Current behavior
+
+-   normalize extracted descriptions before storing them on `Page`
+-   trim overly long meta descriptions to a reasonable max length
+-   prefer ending on a full sentence when a sentence boundary fits
+-   otherwise trim at a word boundary and append `...`
+-   apply the same cleanup to fallback body-text summaries so both
+    extraction paths behave consistently
+
+### Implementation notes
+
+-   keep the behavior deterministic inside `services/extractor.py`
+-   centralize truncation in a shared helper instead of splitting logic
+    across extraction paths
+-   preserve short descriptions as-is
+-   avoid mid-word and awkward punctuation endings when truncating
+-   cover both sentence-boundary and word-boundary truncation in tests
+
+### Benefits
+
+-   improves readability of generated entries
+-   avoids mid-sentence or mid-word descriptions
+-   keeps output polished without introducing AI summarization
+
+------------------------------------------------------------------------
+
+## 8. Crawl Configuration
 
 Allow users to configure crawl parameters.
 
@@ -374,7 +407,7 @@ Example:
 
 ------------------------------------------------------------------------
 
-## 8. Sitemap Support
+## 9. Sitemap Support
 
 Before crawling deeply, check for sitemap availability.
 
@@ -414,7 +447,7 @@ deterministic system is stable.
 
 ------------------------------------------------------------------------
 
-## 9. AI-Generated Descriptions
+## 10. AI-Generated Descriptions
 
 Some pages lack meaningful descriptions.
 
