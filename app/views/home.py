@@ -33,7 +33,7 @@ def render_home_page(
     return render_page_shell(
         "Automated llms.txt Generator",
         render_intro_block(
-            "Automated llms.txt Generator",
+            "Generate an llms.txt file for any website",
             "Deterministically crawl public websites, rank the most useful pages, and generate a polished llms.txt preview before you download it.",
         ),
         render_card(

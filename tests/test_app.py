@@ -76,6 +76,7 @@ def test_home_route_renders_url_form() -> None:
     assert 'name="max_pages"' in response.text
     assert 'name="request_timeout"' in response.text
     assert 'name="max_concurrency"' in response.text
+    assert "Generate an llms.txt file for any website" in response.text
     assert 'rel="icon"' in response.text
     assert 'href="/static/logo.png"' in response.text
 
