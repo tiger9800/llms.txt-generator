@@ -56,10 +56,6 @@ def render_result_page(result: GenerationResult, *, download_path: str):
             _render_result_actions(download_path),
             H2("Generated llms.txt"),
             Pre(result.llms_txt_markdown, id="llms-txt-preview"),
-            Div(
-                Button("Generate another", type="button", onclick="window.location='/'"),
-                style="margin-top: 1rem;",
-            ),
             _render_copy_script(),
             style="max-width: 56rem; margin: 2rem auto; padding: 0 1rem;",
         ),
@@ -237,6 +233,7 @@ def _render_result_actions(download_path: str) -> Div:
     return Div(
         Button("Copy llms.txt", type="button", onclick="copyLlmsTxt()"),
         Button("Download llms.txt", type="button", onclick=f"window.location='{download_path}'"),
+        Button("Generate another", type="button", onclick="window.location='/'"),
         P("", id="copy-status", style="display: inline-block; margin-left: 1rem;"),
         style="margin: 1rem 0; display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;",
     )
