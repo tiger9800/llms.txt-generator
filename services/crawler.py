@@ -22,6 +22,15 @@ CrawledPage: TypeAlias = tuple[str, str, int]
 ProgressCallback: TypeAlias = Callable[["CrawlProgress"], None]
 logger = logging.getLogger(__name__)
 
+MIN_MAX_DEPTH = 0
+MAX_MAX_DEPTH = 5
+MIN_MAX_PAGES = 1
+MAX_MAX_PAGES = 200
+MIN_MAX_CONCURRENT_REQUESTS = 1
+MAX_MAX_CONCURRENT_REQUESTS = 20
+MIN_TIMEOUT = 1.0
+MAX_TIMEOUT = 30.0
+
 
 @dataclass(slots=True)
 class CrawlProgress:
@@ -44,14 +53,16 @@ class CrawlerConfig:
     timeout: float = 10.0
 
     def __post_init__(self) -> None:
-        if self.max_depth < 0:
-            raise ValueError("max_depth must be greater than or equal to zero.")
-        if self.max_pages <= 0:
-            raise ValueError("max_pages must be greater than zero.")
-        if self.max_concurrent_requests <= 0:
-            raise ValueError("max_concurrent_requests must be greater than zero.")
-        if self.timeout <= 0:
-            raise ValueError("timeout must be greater than zero.")
+        if not MIN_MAX_DEPTH <= self.max_depth <= MAX_MAX_DEPTH:
+            raise ValueError(f"max_depth must be between {MIN_MAX_DEPTH} and {MAX_MAX_DEPTH}.")
+        if not MIN_MAX_PAGES <= self.max_pages <= MAX_MAX_PAGES:
+            raise ValueError(f"max_pages must be between {MIN_MAX_PAGES} and {MAX_MAX_PAGES}.")
+        if not MIN_MAX_CONCURRENT_REQUESTS <= self.max_concurrent_requests <= MAX_MAX_CONCURRENT_REQUESTS:
+            raise ValueError(
+                f"max_concurrent_requests must be between {MIN_MAX_CONCURRENT_REQUESTS} and {MAX_MAX_CONCURRENT_REQUESTS}."
+            )
+        if not MIN_TIMEOUT <= self.timeout <= MAX_TIMEOUT:
+            raise ValueError(f"timeout must be between {MIN_TIMEOUT:.1f} and {MAX_TIMEOUT:.1f} seconds.")
 
 
 async def crawl_site(

@@ -10,6 +10,7 @@ from fasthtml.core import Client
 from app.main import create_app
 from models.page import Page
 from services.crawler import CrawlProgress
+from services.crawler import CrawlerConfig
 from services.pipeline import CrawlSummary, GenerationResult, InterstitialPageError
 
 
@@ -18,6 +19,7 @@ class StubPipeline:
     result: GenerationResult
     last_force_generate: bool = False
     last_respect_robots_txt: bool = True
+    last_crawl_config: CrawlerConfig | None = None
     emitted_progress: bool = False
 
     async def run(
@@ -31,6 +33,7 @@ class StubPipeline:
     ):
         self.last_force_generate = force_generate
         self.last_respect_robots_txt = respect_robots_txt
+        self.last_crawl_config = crawl_config
         if progress_callback is not None:
             progress_callback(
                 CrawlProgress(
@@ -64,6 +67,11 @@ def test_home_route_renders_url_form() -> None:
     assert 'method="post"' in response.text
     assert 'name="url"' in response.text
     assert 'name="respect_robots_txt"' in response.text
+    assert "Advanced crawl options" in response.text
+    assert 'name="max_depth"' in response.text
+    assert 'name="max_pages"' in response.text
+    assert 'name="request_timeout"' in response.text
+    assert 'name="max_concurrency"' in response.text
     assert 'rel="icon"' in response.text
     assert 'href="/static/logo.png"' in response.text
 
@@ -118,6 +126,7 @@ def test_generate_route_renders_progress_page_and_result_preview() -> None:
     assert progress_payload["status"] == "completed"
     assert progress_payload["result_path"] == f"/result/{job_id}"
     assert stub_pipeline.emitted_progress is True
+    assert stub_pipeline.last_crawl_config == CrawlerConfig()
 
     result_response = client.get(f"/result/{job_id}")
 
@@ -150,11 +159,26 @@ def test_generate_route_can_disable_robots_txt_respect() -> None:
     app = create_app(pipeline=stub_pipeline)
     client = Client(app)
 
-    response = client.post("/generate", data={"url": "https://example.com/"})  # type: ignore[attr-defined]
+    response = client.post(
+        "/generate",
+        data={
+            "url": "https://example.com/",
+            "max_depth": "3",
+            "max_pages": "25",
+            "request_timeout": "12.5",
+            "max_concurrency": "4",
+        },
+    )  # type: ignore[attr-defined]
 
     assert response.status_code == 200
     assert stub_pipeline.last_force_generate is False
     assert stub_pipeline.last_respect_robots_txt is False
+    assert stub_pipeline.last_crawl_config == CrawlerConfig(
+        max_depth=3,
+        max_pages=25,
+        timeout=12.5,
+        max_concurrent_requests=4,
+    )
 
 
 def test_generate_route_shows_friendly_error_for_invalid_url() -> None:
@@ -177,6 +201,35 @@ def test_generate_route_shows_friendly_error_for_invalid_url() -> None:
 
     assert response.status_code == 200
     assert "Please enter a valid absolute http(s) URL." in response.text
+
+
+def test_generate_route_shows_friendly_error_for_invalid_advanced_crawl_settings() -> None:
+    app = create_app(
+        pipeline=StubPipeline(
+            result=GenerationResult(
+                normalized_root_url="https://example.com/",
+                crawled_pages=[],
+                selected_pages=[],
+                llms_txt_markdown="# Website",
+            )
+        )
+    )
+    client = Client(app)
+
+    response = client.post(
+        "/generate",
+        data={
+            "url": "https://example.com/",
+            "max_depth": "9",
+            "max_pages": "50",
+            "request_timeout": "10.0",
+            "max_concurrency": "5",
+            "respect_robots_txt": "1",
+        },
+    )  # type: ignore[attr-defined]
+
+    assert response.status_code == 200
+    assert "Invalid advanced crawl options:" in response.text
 
 
 def test_download_route_redirects_when_result_is_missing() -> None:

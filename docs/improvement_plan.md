@@ -364,40 +364,42 @@ to read cleanly in generated output.
 
 ## 8. Crawl Configuration
 
-Allow users to configure crawl parameters.
+Status: implemented.
 
-### UI
+The UI now exposes bounded crawl settings under an expandable advanced
+options section so the default experience stays simple.
 
-Advanced Options:
+### Current behavior
+
+Advanced crawl options:
 
 -   `max_depth`
 -   `max_pages`
 -   `request_timeout`
 -   `max_concurrency`
 
-Example defaults:
+Current defaults:
 
     max_depth = 2
     max_pages = 50
-    timeout_seconds = 10
+    timeout_seconds = 10.0
     max_concurrency = 5
 
-### Implementation
+### Limits
 
-Create:
+-   `max_depth`: 0 to 5
+-   `max_pages`: 1 to 200
+-   `request_timeout`: 1.0 to 30.0 seconds
+-   `max_concurrency`: 1 to 20
 
-    models/crawl_config.py
+### Implementation notes
 
-Example:
-
-    from dataclasses import dataclass
-
-    @dataclass
-    class CrawlConfig:
-        max_depth: int = 2
-        max_pages: int = 50
-        timeout_seconds: float = 10
-        max_concurrency: int = 5
+-   reuse `services.crawler.CrawlerConfig` as the source of truth
+-   validate bounds in the config object, not only in the web layer
+-   keep advanced options collapsed by default behind a native
+    `details/summary` control
+-   show a friendly error when submitted values are outside the allowed
+    range
 
 ### Benefits
 
