@@ -15,6 +15,7 @@ SECTION_PRIORITY: dict[str, int] = {
     "Company": 3,
     "Support": 4,
     "Other": 5,
+    "Optional": 6,
 }
 
 
@@ -107,6 +108,9 @@ def _group_pages(pages: list[Page]) -> list[tuple[str, list[Page]]]:
 
 
 def _select_section(page: Page) -> str:
+    if page.is_optional:
+        return "Optional"
+
     if page.category:
         normalized_category = page.category.strip().title()
         if normalized_category in SECTION_PRIORITY:

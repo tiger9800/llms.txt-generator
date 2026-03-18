@@ -19,6 +19,7 @@ class Page:
     canonical_url: str | None = None
     score: float = 0.0
     category: str | None = None
+    is_optional: bool = False
 
     def __post_init__(self) -> None:
         self.url = self._normalize_text(self.url)

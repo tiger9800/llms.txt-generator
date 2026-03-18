@@ -17,6 +17,7 @@ Generate a standards-aligned `llms.txt` file for a public website by crawling, e
 - Layered concurrent BFS crawling with deterministic output ordering.
 - Metadata extraction for titles, descriptions, canonical URLs, and fallback summaries from page content.
 - Deterministic page scoring that boosts likely high-value pages and penalizes low-value or noisy URLs.
+- Conditional `## Optional` output support for lower-priority selected pages, keeping the main sections tighter without dropping useful links.
 - Evaluation harness for comparing generated output against existing `llms.txt` files using URL, slug, and title overlap metrics.
 
 Implemented features are described here; planned work is tracked separately in [docs/improvement_plan.md](docs/improvement_plan.md).
@@ -28,7 +29,7 @@ Implemented features are described here; planned work is tracked separately in [
 3. If generation is needed, the crawler performs a same-domain breadth-first crawl with depth, page-count, timeout, concurrency, `robots.txt`, and optional sitemap settings.
 4. Extracted pages are converted into typed `Page` records with titles, descriptions, paths, and canonical URLs.
 5. The prioritizer deduplicates near-duplicates and scores pages using deterministic URL and metadata heuristics.
-6. The generator groups selected pages into sections and renders the final Markdown preview and downloadable `llms.txt`.
+6. The generator groups selected pages into sections, moves a small lower-priority tail into `## Optional` when helpful, and renders the final Markdown preview and downloadable `llms.txt`.
 
 ## Architecture
 
@@ -64,7 +65,7 @@ UI Output
 - Concurrent BFS crawler: performs a layered same-domain crawl with bounded concurrency and crawl limits.
 - Metadata extractor: parses HTML into typed page records with title, description, path, and canonical URL fields.
 - Page prioritizer: deduplicates pages and ranks them with deterministic heuristics.
-- `llms.txt` generator: groups selected pages into sections and renders the final Markdown file.
+- `llms.txt` generator: groups selected pages into sections, optionally adds a final `## Optional` section for lower-priority selected pages, and renders the final Markdown file.
 
 ### Request Flow
 

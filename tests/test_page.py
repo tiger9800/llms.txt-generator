@@ -24,6 +24,7 @@ def test_page_normalizes_text_and_path() -> None:
     assert page.path == "/docs/start"
     assert page.canonical_url is None
     assert page.category == "Documentation"
+    assert page.is_optional is False
 
 
 def test_page_falls_back_to_path_from_url() -> None:

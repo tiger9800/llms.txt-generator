@@ -449,6 +449,40 @@ If a sitemap is present:
 
 ------------------------------------------------------------------------
 
+## 10. Optional Section Support
+
+Status: implemented.
+
+The generator now supports a conditional `## Optional` section for
+lower-priority pages that still survived prioritization.
+
+### Current behavior
+
+-   keep the highest-ranked selected pages in the normal primary
+    sections
+-   move a small lower-priority tail of selected non-homepage pages into
+    a final `## Optional` section
+-   omit `## Optional` entirely when too few pages were selected for the
+    split to be useful
+-   never move the homepage into `Optional`
+
+### Implementation notes
+
+-   keep prioritization as the source of truth for ranking
+-   do not change crawl or extraction behavior
+-   mark `Optional` pages after scoring and selection, not before
+-   keep `Optional` ordering deterministic and render it after all
+    primary sections
+
+### Benefits
+
+-   keeps the main sections more focused
+-   preserves useful lower-priority links
+-   aligns generated output more closely with the `llms.txt` format
+-   improves readability on broader crawls
+
+------------------------------------------------------------------------
+
 # Tier 3 --- Optional AI Enhancements
 
 These features are optional and should be implemented after the
@@ -456,7 +490,7 @@ deterministic system is stable.
 
 ------------------------------------------------------------------------
 
-## 10. AI-Generated Descriptions
+## 11. AI-Generated Descriptions
 
 Some pages lack meaningful descriptions.
 

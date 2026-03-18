@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from math import ceil
 from dataclasses import replace
 from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
@@ -9,6 +10,8 @@ from models.page import Page
 from utils.url_utils import normalize_url
 
 DEFAULT_MAX_PAGES = 50
+OPTIONAL_TAIL_FRACTION = 0.25
+MIN_OPTIONAL_CANDIDATES = 4
 HIGH_VALUE_SECTION_SCORES: tuple[tuple[str, str, float], ...] = (
     ("/docs", "Documentation", 5.0),
     ("/api", "Documentation", 5.0),
@@ -31,7 +34,7 @@ def prioritize_pages(pages: list[Page], *, max_pages: int = DEFAULT_MAX_PAGES) -
     unique_pages = _deduplicate_pages(pages)
     scored_pages = [_score_page(page) for page in unique_pages]
 
-    return sorted(
+    ranked_pages = sorted(
         scored_pages,
         key=lambda page: (
             -page.score,
@@ -40,6 +43,8 @@ def prioritize_pages(pages: list[Page], *, max_pages: int = DEFAULT_MAX_PAGES) -
             page.effective_url,
         ),
     )[:max_pages]
+
+    return _mark_optional_pages(ranked_pages)
 
 
 def _deduplicate_pages(pages: list[Page]) -> list[Page]:
@@ -131,3 +136,17 @@ def _page_quality_key(page: Page) -> tuple[int, int, int, int]:
         -page.depth,
         -page.path_depth,
     )
+
+
+def _mark_optional_pages(pages: list[Page]) -> list[Page]:
+    non_homepage_pages = [page for page in pages if not page.is_homepage]
+    if len(non_homepage_pages) < MIN_OPTIONAL_CANDIDATES:
+        return pages
+
+    optional_count = max(1, ceil(len(non_homepage_pages) * OPTIONAL_TAIL_FRACTION))
+    optional_page_ids = {id(page) for page in non_homepage_pages[-optional_count:]}
+
+    return [
+        replace(page, is_optional=id(page) in optional_page_ids)
+        for page in pages
+    ]

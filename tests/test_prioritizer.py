@@ -146,3 +146,87 @@ def test_prioritize_pages_respects_max_pages() -> None:
         "https://example.com/",
         "https://example.com/docs",
     ]
+
+
+def test_prioritize_pages_marks_a_small_lower_ranked_tail_as_optional() -> None:
+    pages = [
+        Page(
+            url="https://example.com/",
+            title="Example",
+            description="Overview.",
+            path="/",
+            depth=0,
+        ),
+        Page(
+            url="https://example.com/docs",
+            title="Docs",
+            description="Docs overview.",
+            path="/docs",
+            depth=1,
+        ),
+        Page(
+            url="https://example.com/api",
+            title="API",
+            description="API reference.",
+            path="/api",
+            depth=1,
+        ),
+        Page(
+            url="https://example.com/blog",
+            title="Blog",
+            description="Updates.",
+            path="/blog",
+            depth=1,
+        ),
+        Page(
+            url="https://example.com/about",
+            title="About",
+            description="About us.",
+            path="/about",
+            depth=1,
+        ),
+    ]
+
+    prioritized_pages = prioritize_pages(pages)
+
+    assert prioritized_pages[0].is_optional is False
+    assert [page.url for page in prioritized_pages if page.is_optional] == [
+        "https://example.com/about",
+    ]
+
+
+def test_prioritize_pages_omits_optional_for_small_page_sets() -> None:
+    pages = [
+        Page(
+            url="https://example.com/",
+            title="Example",
+            description="Overview.",
+            path="/",
+            depth=0,
+        ),
+        Page(
+            url="https://example.com/docs",
+            title="Docs",
+            description="Docs overview.",
+            path="/docs",
+            depth=1,
+        ),
+        Page(
+            url="https://example.com/api",
+            title="API",
+            description="API reference.",
+            path="/api",
+            depth=1,
+        ),
+        Page(
+            url="https://example.com/blog",
+            title="Blog",
+            description="Updates.",
+            path="/blog",
+            depth=1,
+        ),
+    ]
+
+    prioritized_pages = prioritize_pages(pages)
+
+    assert all(not page.is_optional for page in prioritized_pages)

@@ -138,3 +138,89 @@ def test_generate_llms_txt_uses_category_when_available() -> None:
 
 def test_generate_llms_txt_handles_empty_input() -> None:
     assert generate_llms_txt([]) == "# Website"
+
+
+def test_generate_llms_txt_renders_optional_section_last() -> None:
+    pages = [
+        Page(
+            url="https://example.com/",
+            title="Example Platform",
+            description="Developer tools and documentation for Example Platform.",
+            path="/",
+            depth=0,
+        ),
+        Page(
+            url="https://example.com/docs/start",
+            title="Getting Started",
+            description="Introduction to the platform.",
+            path="/docs/start",
+            depth=1,
+            score=10.0,
+        ),
+        Page(
+            url="https://example.com/blog",
+            title="Blog",
+            description="Product updates and tutorials.",
+            path="/blog",
+            depth=1,
+            score=5.0,
+            is_optional=True,
+        ),
+    ]
+
+    markdown = generate_llms_txt(pages)
+
+    assert "## Documentation" in markdown
+    assert "## Optional" in markdown
+    assert markdown.index("## Documentation") < markdown.index("## Optional")
+    assert "- [Blog](https://example.com/blog): Product updates and tutorials." in markdown
+
+
+def test_generate_llms_txt_excludes_optional_pages_from_primary_sections() -> None:
+    pages = [
+        Page(
+            url="https://example.com/",
+            title="Example",
+            description="Platform overview.",
+            path="/",
+            depth=0,
+        ),
+        Page(
+            url="https://example.com/blog",
+            title="Blog",
+            description="Product updates.",
+            path="/blog",
+            depth=1,
+            score=5.0,
+            is_optional=True,
+        ),
+    ]
+
+    markdown = generate_llms_txt(pages)
+
+    assert "## Resources" not in markdown
+    assert "## Optional" in markdown
+
+
+def test_generate_llms_txt_omits_empty_optional_section() -> None:
+    pages = [
+        Page(
+            url="https://example.com/",
+            title="Example",
+            description="Platform overview.",
+            path="/",
+            depth=0,
+        ),
+        Page(
+            url="https://example.com/docs",
+            title="Docs",
+            description="Documentation.",
+            path="/docs",
+            depth=1,
+            score=5.0,
+        ),
+    ]
+
+    markdown = generate_llms_txt(pages)
+
+    assert "## Optional" not in markdown
