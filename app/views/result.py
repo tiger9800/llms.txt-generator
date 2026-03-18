@@ -16,7 +16,7 @@ def render_result_page(result: GenerationResult, *, download_path: str):
         "Automated llms.txt Generator",
         render_intro_block(
             "Generation Summary",
-            "Review the crawl outcome, compare the selected pages, and copy or download the generated llms.txt in one place.",
+            "Review the crawl outcome, inspect the selected pages, and copy or download the generated llms.txt in one place.",
         ),
         render_card(
             _render_result_summary(result),
