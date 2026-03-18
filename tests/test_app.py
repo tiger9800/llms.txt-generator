@@ -250,6 +250,31 @@ def test_download_route_redirects_when_result_is_missing() -> None:
     assert response.status_code == 303
 
 
+def test_download_route_uses_website_specific_filename() -> None:
+    app = create_app(
+        pipeline=StubPipeline(
+            result=GenerationResult(
+                normalized_root_url="https://www.example.com/docs/api/",
+                crawled_pages=[],
+                selected_pages=[],
+                llms_txt_markdown="# Website",
+            )
+        )
+    )
+    client = Client(app)
+
+    response = client.post("/generate", data={"url": "https://www.example.com/docs/api/"})  # type: ignore[attr-defined]
+    job_id = _extract_job_id(response.text)
+    _wait_for_progress_completion(client, job_id)
+
+    download_response = client.get(f"/download/{job_id}")
+
+    assert download_response.status_code == 200
+    assert download_response.headers["content-disposition"] == (
+        'attachment; filename="example-com-docs-api-llms.txt"'
+    )
+
+
 def test_progress_route_reports_failure_for_missing_job() -> None:
     app = create_app(
         pipeline=StubPipeline(

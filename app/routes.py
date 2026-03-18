@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import MutableMapping
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 from starlette.responses import JSONResponse, PlainTextResponse, RedirectResponse
@@ -117,7 +118,11 @@ def register_routes(
         return PlainTextResponse(
             result.llms_txt_markdown,
             media_type="text/plain; charset=utf-8",
-            headers={"content-disposition": 'attachment; filename="llms.txt"'},
+            headers={
+                "content-disposition": (
+                    f'attachment; filename="{_build_download_filename(result.normalized_root_url)}"'
+                )
+            },
         )
 
 
@@ -181,3 +186,15 @@ def _parse_crawl_config(
         )
     except ValueError as error:
         raise ValueError(f"Invalid advanced crawl options: {error}") from error
+
+
+def _build_download_filename(normalized_root_url: str) -> str:
+    split_result = urlsplit(normalized_root_url)
+    hostname = (split_result.hostname or "website").removeprefix("www.").replace(".", "-")
+    path_segments = [segment for segment in split_result.path.split("/") if segment]
+    path_suffix = "-".join(path_segments[:2])
+
+    if path_suffix:
+        return f"{hostname}-{path_suffix}-llms.txt"
+
+    return f"{hostname}-llms.txt"
