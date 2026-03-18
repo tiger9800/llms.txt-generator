@@ -444,3 +444,150 @@ async def test_crawl_site_can_disable_robots_txt_enforcement() -> None:
         "https://example.com/",
         "https://example.com/private",
     ]
+
+
+@pytest.mark.anyio
+async def test_crawl_site_seeds_queue_from_default_sitemap() -> None:
+    pages = {
+        "https://example.com/sitemap.xml": """
+            <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+              <url><loc>https://example.com/docs</loc></url>
+              <url><loc>https://example.com/guide</loc></url>
+            </urlset>
+        """,
+        "https://example.com": "<html><body><p>Home</p></body></html>",
+        "https://example.com/docs": "<html><body><p>Docs</p></body></html>",
+        "https://example.com/guide": "<html><body><p>Guide</p></body></html>",
+    }
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        request_url = str(request.url).rstrip("/") or str(request.url)
+        content = pages.get(request_url)
+        if content is None:
+            return httpx.Response(status_code=404, request=request)
+
+        content_type = "application/xml" if request_url.endswith(".xml") else "text/html"
+        if request_url.endswith("robots.txt"):
+            content_type = "text/plain"
+
+        return httpx.Response(
+            status_code=200,
+            headers={"content-type": content_type},
+            text=content,
+            request=request,
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        crawled_pages = await crawl_site(
+            "https://example.com/",
+            config=CrawlerConfig(max_depth=1, max_pages=10),
+            client=client,
+        )
+
+    assert [page[0] for page in crawled_pages] == [
+        "https://example.com/",
+        "https://example.com/docs",
+        "https://example.com/guide",
+    ]
+
+
+@pytest.mark.anyio
+async def test_crawl_site_uses_robots_declared_sitemap_when_default_path_is_missing() -> None:
+    pages = {
+        "https://example.com/robots.txt": """
+            User-agent: llmstxt-generator/1.0
+            Sitemap: https://example.com/custom-sitemap.xml
+        """,
+        "https://example.com/custom-sitemap.xml": """
+            <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+              <url><loc>https://example.com/docs/start</loc></url>
+              <url><loc>https://example.com/files/guide.pdf</loc></url>
+            </urlset>
+        """,
+        "https://example.com": "<html><body><p>Home</p></body></html>",
+        "https://example.com/docs/start": "<html><body><p>Docs</p></body></html>",
+    }
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        request_url = str(request.url).rstrip("/") or str(request.url)
+        if request_url == "https://example.com/sitemap.xml":
+            return httpx.Response(status_code=404, request=request)
+
+        content = pages.get(request_url)
+        if content is None:
+            return httpx.Response(status_code=404, request=request)
+
+        if request_url.endswith(".xml"):
+            content_type = "application/xml"
+        elif request_url.endswith("robots.txt"):
+            content_type = "text/plain"
+        else:
+            content_type = "text/html"
+
+        return httpx.Response(
+            status_code=200,
+            headers={"content-type": content_type},
+            text=content,
+            request=request,
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        crawled_pages = await crawl_site(
+            "https://example.com/",
+            config=CrawlerConfig(max_depth=1, max_pages=10),
+            client=client,
+        )
+
+    assert [page[0] for page in crawled_pages] == [
+        "https://example.com/",
+        "https://example.com/docs/start",
+    ]
+
+
+@pytest.mark.anyio
+async def test_crawl_site_canonicalizes_www_aliases_to_root_host() -> None:
+    pages = {
+        "https://example.com/sitemap.xml": """
+            <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+              <url><loc>https://www.example.com/about</loc></url>
+            </urlset>
+        """,
+        "https://example.com": """
+            <html>
+              <body>
+                <a href="https://www.example.com/about">About</a>
+              </body>
+            </html>
+        """,
+        "https://example.com/about": "<html><body><p>About</p></body></html>",
+        "https://www.example.com/about": "<html><body><p>About</p></body></html>",
+    }
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        request_url = str(request.url).rstrip("/") or str(request.url)
+        content = pages.get(request_url)
+        if content is None:
+            return httpx.Response(status_code=404, request=request)
+
+        content_type = "application/xml" if request_url.endswith(".xml") else "text/html"
+        return httpx.Response(
+            status_code=200,
+            headers={"content-type": content_type},
+            text=content,
+            request=request,
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        crawled_pages = await crawl_site(
+            "https://example.com/",
+            config=CrawlerConfig(max_depth=1, max_pages=10),
+            client=client,
+        )
+
+    assert [page[0] for page in crawled_pages] == [
+        "https://example.com/",
+        "https://example.com/about",
+    ]

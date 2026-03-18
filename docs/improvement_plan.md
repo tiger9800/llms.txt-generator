@@ -409,21 +409,34 @@ Example:
 
 ## 9. Sitemap Support
 
-Before crawling deeply, check for sitemap availability.
+Status: implemented.
 
-Primary path:
+The crawler now checks for sitemap hints before expanding the main BFS
+queue.
+
+### Current behavior
+
+Primary sitemap path:
 
     /sitemap.xml
 
 Also consider sitemap declarations inside `robots.txt`.
 
-### Behavior
-
 If a sitemap is present:
 
 1.  Parse sitemap URLs
-2.  Seed the crawler with sitemap entries
-3.  Prefer sitemap-discovered URLs as high-quality crawl seeds
+2.  Seed the crawler queue with sitemap-discovered HTML pages
+3.  Keep the root URL first and continue normal BFS from there
+
+### Implementation notes
+
+-   `utils/sitemap.py` encapsulates sitemap fetching and XML parsing
+-   support standard `urlset` sitemaps and nested `sitemapindex`
+    documents
+-   treat sitemap seeding as an enhancement, not a hard dependency
+-   fall back cleanly when the default sitemap path is missing
+-   filter sitemap-discovered URLs through the existing same-domain,
+    HTML-like, and skipped-path checks before enqueueing
 
 ### Benefits
 
@@ -431,12 +444,6 @@ If a sitemap is present:
 -   better coverage
 -   less crawling required
 -   often improves recall on documentation-heavy sites
-
-### Implementation Notes
-
--   keep sitemap parsing simple for V1
--   support standard XML sitemap format
--   treat sitemap seeding as an enhancement, not a hard dependency
 
 ------------------------------------------------------------------------
 

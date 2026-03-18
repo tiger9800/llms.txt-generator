@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from utils.url_utils import (
+    canonicalize_same_domain_url,
     get_url_path,
     is_html_like_url,
     is_same_domain,
@@ -38,6 +39,13 @@ def test_normalize_url_rejects_empty_values() -> None:
 def test_is_same_domain_treats_www_as_the_same_site() -> None:
     assert is_same_domain("https://www.example.com/docs", "https://example.com")
     assert not is_same_domain("https://blog.example.com/docs", "https://example.com")
+
+
+def test_canonicalize_same_domain_url_rewrites_to_origin_host() -> None:
+    assert canonicalize_same_domain_url(
+        "https://www.example.com/docs/start",
+        "https://example.com/",
+    ) == "https://example.com/docs/start"
 
 
 def test_is_html_like_url_filters_common_binary_assets() -> None:

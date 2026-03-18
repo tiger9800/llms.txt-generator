@@ -132,6 +132,27 @@ def is_same_domain(candidate_url: str, origin_url: str) -> bool:
     return candidate_host == origin_host
 
 
+def canonicalize_same_domain_url(candidate_url: str, origin_url: str) -> str:
+    """Return a same-domain URL rewritten to the origin host when applicable."""
+
+    normalized_candidate_url = normalize_url(candidate_url)
+    normalized_origin_url = normalize_url(origin_url)
+    if not is_same_domain(normalized_candidate_url, normalized_origin_url):
+        return normalized_candidate_url
+
+    candidate_parts = urlsplit(normalized_candidate_url)
+    origin_parts = urlsplit(normalized_origin_url)
+    return urlunsplit(
+        (
+            origin_parts.scheme,
+            origin_parts.netloc,
+            candidate_parts.path,
+            candidate_parts.query,
+            "",
+        )
+    )
+
+
 def is_html_like_url(url: str) -> bool:
     """Return whether the URL likely points to an HTML page."""
 

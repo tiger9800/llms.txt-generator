@@ -90,6 +90,30 @@ def test_prioritize_pages_deduplicates_by_canonical_url() -> None:
     assert prioritized_pages[0].description == "Start here."
 
 
+def test_prioritize_pages_deduplicates_www_and_non_www_variants() -> None:
+    pages = [
+        Page(
+            url="https://example.com/about",
+            title="About",
+            description="About the company.",
+            path="/about",
+            depth=1,
+        ),
+        Page(
+            url="https://www.example.com/about",
+            title="About",
+            description="",
+            path="/about",
+            depth=2,
+        ),
+    ]
+
+    prioritized_pages = prioritize_pages(pages)
+
+    assert len(prioritized_pages) == 1
+    assert prioritized_pages[0].url == "https://example.com/about"
+
+
 def test_prioritize_pages_respects_max_pages() -> None:
     pages = [
         Page(

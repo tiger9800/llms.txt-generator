@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from urllib.parse import parse_qsl, urlsplit
+from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
 from models.page import Page
 from utils.url_utils import normalize_url
@@ -106,7 +106,22 @@ def _query_penalty(url: str) -> float:
 
 
 def _page_identity(page: Page) -> str:
-    return normalize_url(page.canonical_url or page.url)
+    normalized_url = normalize_url(page.canonical_url or page.url)
+    split_result = urlsplit(normalized_url)
+    hostname = (split_result.hostname or "").removeprefix("www.")
+    netloc = hostname
+    if split_result.port is not None:
+        netloc = f"{hostname}:{split_result.port}"
+
+    return urlunsplit(
+        (
+            split_result.scheme,
+            netloc,
+            split_result.path,
+            split_result.query,
+            "",
+        )
+    )
 
 
 def _page_quality_key(page: Page) -> tuple[int, int, int, int]:

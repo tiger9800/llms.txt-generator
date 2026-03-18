@@ -15,7 +15,8 @@ from bs4 import BeautifulSoup
 
 from utils.http_utils import DEFAULT_USER_AGENT, get_async_client
 from utils.robots import RobotsPolicy, load_robots_policy
-from utils.url_utils import is_html_like_url, is_same_domain, normalize_url, should_skip_url
+from utils.sitemap import load_sitemap_urls
+from utils.url_utils import canonicalize_same_domain_url, is_html_like_url, is_same_domain, normalize_url, should_skip_url
 
 CrawledPage: TypeAlias = tuple[str, str, int]
 ProgressCallback: TypeAlias = Callable[["CrawlProgress"], None]
@@ -85,11 +86,13 @@ async def crawl_site(
         if robots_policy is None:
             return []
 
+        sitemap_seed_urls = await load_sitemap_urls(normalized_start_url, active_client)
         crawled_pages = await _crawl_with_client(
             normalized_start_url,
             crawler_config,
             active_client,
             robots_policy,
+            sitemap_seed_urls=sitemap_seed_urls,
             progress_callback=progress_callback,
         )
         elapsed_seconds = perf_counter() - crawl_started_at
@@ -108,10 +111,10 @@ async def _crawl_with_client(
     client: httpx.AsyncClient,
     robots_policy: RobotsPolicy,
     *,
+    sitemap_seed_urls: list[str],
     progress_callback: ProgressCallback | None,
 ) -> list[CrawledPage]:
-    queue: deque[tuple[str, int]] = deque([(start_url, 0)])
-    seen_urls: set[str] = {start_url}
+    queue, seen_urls = _initialize_queue(start_url, sitemap_seed_urls)
     crawled_pages: list[CrawledPage] = []
     semaphore = asyncio.Semaphore(config.max_concurrent_requests)
 
@@ -167,6 +170,30 @@ async def _crawl_with_client(
             )
 
     return crawled_pages
+
+
+def _initialize_queue(
+    start_url: str,
+    sitemap_seed_urls: list[str],
+) -> tuple[deque[tuple[str, int]], set[str]]:
+    queue: deque[tuple[str, int]] = deque([(start_url, 0)])
+    seen_urls: set[str] = {start_url}
+
+    for sitemap_url in sitemap_seed_urls:
+        normalized_sitemap_url = canonicalize_same_domain_url(sitemap_url, start_url)
+        if normalized_sitemap_url == start_url:
+            continue
+
+        if not _should_enqueue_url(normalized_sitemap_url, start_url):
+            continue
+
+        if normalized_sitemap_url in seen_urls:
+            continue
+
+        seen_urls.add(normalized_sitemap_url)
+        queue.append((normalized_sitemap_url, 1))
+
+    return queue, seen_urls
 
 
 async def _fetch_html(url: str, client: httpx.AsyncClient) -> str | None:
@@ -243,6 +270,8 @@ def _extract_internal_links(html: str, page_url: str, root_url: str) -> list[str
             normalized_candidate = normalize_url(href, base_url=page_url)
         except ValueError:
             continue
+
+        normalized_candidate = canonicalize_same_domain_url(normalized_candidate, root_url)
 
         if not _should_enqueue_url(normalized_candidate, root_url):
             continue
