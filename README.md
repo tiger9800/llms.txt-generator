@@ -150,12 +150,16 @@ Start command: `python -m app.main`
 
 ## Local development
 
+This project is developed and tested with **Python 3.10**. The
+repository includes a [`.python-version`](.python-version) file pinned
+to `3.10.11` for local tooling such as `pyenv`.
+
 ### 1. Create a virtual environment
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate   # macOS / Linux
-venv\Scripts\activate    # Windows
+python3.10 -m venv venv
+source venv/bin/activate  # macOS / Linux
+venv\Scripts\activate     # Windows
 ```
 
 ### 2. Install dependencies
