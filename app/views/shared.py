@@ -171,20 +171,6 @@ p, li {
 
 .advanced-summary {
   cursor: pointer;
-  list-style: none;
-}
-
-.advanced-summary::-webkit-details-marker {
-  display: none;
-}
-
-.advanced-summary::after {
-  content: " +";
-  color: var(--accent);
-}
-
-.advanced-panel[open] .advanced-summary::after {
-  content: " -";
 }
 
 .number-field {
