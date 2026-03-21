@@ -172,6 +172,75 @@ async def test_generation_pipeline_uses_existing_llms_txt_when_available() -> No
 
 
 @pytest.mark.anyio
+async def test_generation_pipeline_ignores_html_app_shell_at_llms_txt_path() -> None:
+    pages = {
+        "https://example.com": """
+            <html>
+              <head>
+                <title>Example Platform</title>
+                <meta name="description" content="Developer tools and docs for Example Platform.">
+              </head>
+              <body>
+                <a href="/docs/start">Getting Started</a>
+              </body>
+            </html>
+        """,
+        "https://example.com/docs/start": """
+            <html>
+              <head>
+                <title>Getting Started</title>
+                <meta name="description" content="Learn how to start building.">
+              </head>
+              <body></body>
+            </html>
+        """,
+    }
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        request_url = str(request.url).rstrip("/") or str(request.url)
+        if str(request.url) == "https://example.com/llms.txt":
+            return httpx.Response(
+                status_code=200,
+                headers={"content-type": "text/html; charset=utf-8"},
+                text="""
+                    <!doctype html>
+                    <html>
+                      <head><title>Example App Shell</title></head>
+                      <body><div id="app"></div></body>
+                    </html>
+                """,
+                request=request,
+            )
+
+        html = pages.get(request_url)
+        if html is None:
+            return httpx.Response(status_code=404, request=request)
+
+        return httpx.Response(
+            status_code=200,
+            headers={"content-type": "text/html; charset=utf-8"},
+            text=html,
+            request=request,
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        pipeline = GenerationPipeline(client=client)
+        result = await pipeline.run(
+            "https://example.com/",
+            crawl_config=CrawlerConfig(max_depth=1, max_pages=10),
+        )
+
+    assert result.used_existing_llms_txt is False
+    assert result.existing_llms_txt_url is None
+    assert [url for url, _, _ in result.crawled_pages] == [
+        "https://example.com/",
+        "https://example.com/docs/start",
+    ]
+    assert result.crawl_summary is not None
+
+
+@pytest.mark.anyio
 async def test_generation_pipeline_prefers_path_local_llms_txt_for_subpath_roots() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         request_url = str(request.url)

@@ -30,6 +30,7 @@ MIN_MAX_CONCURRENT_REQUESTS = 1
 MAX_MAX_CONCURRENT_REQUESTS = 20
 MIN_TIMEOUT = 1.0
 MAX_TIMEOUT = 30.0
+MAX_SITEMAP_SEED_URLS = 5
 
 
 @dataclass(slots=True)
@@ -99,7 +100,11 @@ async def crawl_site(
             return []
 
         sitemap_seed_urls = (
-            await load_sitemap_urls(normalized_start_url, active_client)
+            await load_sitemap_urls(
+                normalized_start_url,
+                active_client,
+                max_urls=min(crawler_config.max_pages, MAX_SITEMAP_SEED_URLS),
+            )
             if crawler_config.use_sitemap
             else []
         )

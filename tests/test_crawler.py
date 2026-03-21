@@ -628,3 +628,98 @@ async def test_crawl_site_can_disable_sitemap_seeding() -> None:
         )
 
     assert [page[0] for page in crawled_pages] == ["https://example.com/"]
+
+
+@pytest.mark.anyio
+async def test_crawl_site_limits_sitemap_seed_urls_to_crawl_budget() -> None:
+    sitemap_entries = "\n".join(
+        f"<url><loc>https://example.com/page-{index}</loc></url>"
+        for index in range(1, 8)
+    )
+    pages = {
+        "https://example.com/sitemap.xml": f"""
+            <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+              {sitemap_entries}
+            </urlset>
+        """,
+        "https://example.com": "<html><body><p>Home</p></body></html>",
+    }
+    for index in range(1, 8):
+        pages[f"https://example.com/page-{index}"] = f"<html><body><p>Page {index}</p></body></html>"
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        request_url = str(request.url).rstrip("/") or str(request.url)
+        content = pages.get(request_url)
+        if content is None:
+            return httpx.Response(status_code=404, request=request)
+
+        content_type = "application/xml" if request_url.endswith(".xml") else "text/html"
+        return httpx.Response(
+            status_code=200,
+            headers={"content-type": content_type},
+            text=content,
+            request=request,
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        crawled_pages = await crawl_site(
+            "https://example.com/",
+            config=CrawlerConfig(max_depth=1, max_pages=3),
+            client=client,
+        )
+
+    assert [page[0] for page in crawled_pages] == [
+        "https://example.com/",
+        "https://example.com/page-1",
+        "https://example.com/page-2",
+    ]
+
+
+@pytest.mark.anyio
+async def test_crawl_site_limits_sitemap_seed_urls_to_five_even_with_larger_crawl_budget() -> None:
+    sitemap_entries = "\n".join(
+        f"<url><loc>https://example.com/page-{index}</loc></url>"
+        for index in range(1, 9)
+    )
+    pages = {
+        "https://example.com/sitemap.xml": f"""
+            <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+              {sitemap_entries}
+            </urlset>
+        """,
+        "https://example.com": "<html><body><p>Home</p></body></html>",
+    }
+    for index in range(1, 9):
+        pages[f"https://example.com/page-{index}"] = f"<html><body><p>Page {index}</p></body></html>"
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        request_url = str(request.url).rstrip("/") or str(request.url)
+        content = pages.get(request_url)
+        if content is None:
+            return httpx.Response(status_code=404, request=request)
+
+        content_type = "application/xml" if request_url.endswith(".xml") else "text/html"
+        return httpx.Response(
+            status_code=200,
+            headers={"content-type": content_type},
+            text=content,
+            request=request,
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        crawled_pages = await crawl_site(
+            "https://example.com/",
+            config=CrawlerConfig(max_depth=1, max_pages=10),
+            client=client,
+        )
+
+    assert [page[0] for page in crawled_pages] == [
+        "https://example.com/",
+        "https://example.com/page-1",
+        "https://example.com/page-2",
+        "https://example.com/page-3",
+        "https://example.com/page-4",
+        "https://example.com/page-5",
+    ]

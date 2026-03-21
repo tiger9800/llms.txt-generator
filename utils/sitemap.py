@@ -15,8 +15,16 @@ from utils.url_utils import normalize_url
 logger = logging.getLogger(__name__)
 
 
-async def load_sitemap_urls(root_url: str, client: httpx.AsyncClient) -> list[str]:
+async def load_sitemap_urls(
+    root_url: str,
+    client: httpx.AsyncClient,
+    *,
+    max_urls: int,
+) -> list[str]:
     """Return normalized page URLs discovered from the site's sitemap hints."""
+
+    if max_urls <= 0:
+        return []
 
     sitemap_urls = [urljoin(root_url, "/sitemap.xml")]
     sitemap_urls.extend(await _load_robots_sitemap_urls(root_url, client))
@@ -32,7 +40,11 @@ async def load_sitemap_urls(root_url: str, client: httpx.AsyncClient) -> list[st
             seen_sitemap_urls=seen_sitemap_urls,
             discovered_page_urls=discovered_page_urls,
             seen_page_urls=seen_page_urls,
+            max_urls=max_urls,
         )
+
+        if len(discovered_page_urls) >= max_urls:
+            break
 
     return discovered_page_urls
 
@@ -74,7 +86,11 @@ async def _collect_sitemap_urls(
     seen_sitemap_urls: set[str],
     discovered_page_urls: list[str],
     seen_page_urls: set[str],
+    max_urls: int,
 ) -> None:
+    if len(discovered_page_urls) >= max_urls:
+        return
+
     normalized_sitemap_url = normalize_url(sitemap_url)
     if normalized_sitemap_url in seen_sitemap_urls:
         return
@@ -103,17 +119,22 @@ async def _collect_sitemap_urls(
             _extract_loc_values(document_root),
             discovered_page_urls=discovered_page_urls,
             seen_page_urls=seen_page_urls,
+            max_urls=max_urls,
         )
         return
 
     if root_tag_name == "sitemapindex":
         for nested_sitemap_url in _extract_loc_values(document_root):
+            if len(discovered_page_urls) >= max_urls:
+                break
+
             await _collect_sitemap_urls(
                 nested_sitemap_url,
                 client,
                 seen_sitemap_urls=seen_sitemap_urls,
                 discovered_page_urls=discovered_page_urls,
                 seen_page_urls=seen_page_urls,
+                max_urls=max_urls,
             )
 
 
@@ -122,8 +143,12 @@ def _add_sitemap_page_urls(
     *,
     discovered_page_urls: list[str],
     seen_page_urls: set[str],
+    max_urls: int,
 ) -> None:
     for page_url in page_urls:
+        if len(discovered_page_urls) >= max_urls:
+            break
+
         try:
             normalized_page_url = normalize_url(page_url)
         except ValueError:

@@ -155,7 +155,19 @@ async def _fetch_llms_txt_with_client(
     if response.status_code != 200:
         return None
 
+    if _is_html_document_response(response):
+        return None
+
     return response.text
+
+
+def _is_html_document_response(response: httpx.Response) -> bool:
+    content_type = response.headers.get("content-type", "").lower()
+    if "text/html" in content_type or "application/xhtml+xml" in content_type:
+        return True
+
+    stripped_body = response.text.lstrip().lower()
+    return stripped_body.startswith("<!doctype html") or stripped_body.startswith("<html")
 
 
 def _candidate_llms_txt_urls(root_url: str) -> list[str]:
