@@ -158,6 +158,9 @@ async def _fetch_llms_txt_with_client(
     if _is_html_document_response(response):
         return None
 
+    if not _looks_like_markdown_document(response.text):
+        return None
+
     return response.text
 
 
@@ -168,6 +171,24 @@ def _is_html_document_response(response: httpx.Response) -> bool:
 
     stripped_body = response.text.lstrip().lower()
     return stripped_body.startswith("<!doctype html") or stripped_body.startswith("<html")
+
+
+def _looks_like_markdown_document(text: str) -> bool:
+    for stripped_line in (line.strip() for line in text.splitlines()):
+        if not stripped_line:
+            continue
+
+        if stripped_line.startswith(("#", ">", "- ", "* ")):
+            return True
+
+        numeric_prefix, separator, remainder = stripped_line.partition(". ")
+        if separator and numeric_prefix.isdigit() and remainder:
+            return True
+
+        if "[" in stripped_line and "](" in stripped_line and stripped_line.endswith(")"):
+            return True
+
+    return False
 
 
 def _candidate_llms_txt_urls(root_url: str) -> list[str]:
